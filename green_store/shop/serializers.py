@@ -34,3 +34,9 @@ class CategorySerializers(serializers.ModelSerializer):
             temp=temp.parent
         return parent
         # return obj.__str__()
+
+class ProfileSerializers(serializers.ModelSerializer):
+    class Meta:
+        model=Profile
+        # fields='__all__'
+        exclude=('user',)

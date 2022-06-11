@@ -8,6 +8,7 @@ from rest_framework.authtoken.views import obtain_auth_token
 urlpatterns = [
     path('register/',views.register,name='register'),
     path('login/',obtain_auth_token,name='login'),
+    path('profile/',views.profile,name='profile'),
     path('get_started/',views.get_started,name='home'), # in view return thing same as best_rating,new,off,...
     path('category/',views.category,name='category'),
     # path('products/<slug:pn>',details,name='product_detail'),
