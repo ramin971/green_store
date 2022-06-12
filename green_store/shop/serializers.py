@@ -40,3 +40,8 @@ class ProfileSerializers(serializers.ModelSerializer):
         model=Profile
         # fields='__all__'
         exclude=('user',)
+
+class AttributeSerializers(serializers.ModelSerializer):
+    class Meta:
+        model=Attribute
+        fields=['id','name','value']

@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view,permission_classes
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import IsAuthenticated,IsAuthenticatedOrReadOnly
-from .serializers import UserSerializers,ProductSerializers,CategorySerializers,ProfileSerializers
+from .serializers import UserSerializers,ProductSerializers,CategorySerializers,ProfileSerializers,AttributeSerializers
 from .models import Product,Profile,Comment,Category,Attribute,Rating
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -52,6 +52,8 @@ def profile(request):
         print(user)
     except User.DoesNotExist:
         return Response(status=status.HTTP_401_UNAUTHORIZED)
+    # Check token Expire:
+    token_expire_handler(token=request.auth)
 
     if request.method=='GET':
         if Profile.objects.filter(user=user).exists():
@@ -65,6 +67,7 @@ def profile(request):
                 'error':'profile is not exist for current user.please complete profile.'
             }
             return Response(res,status=status.HTTP_404_NOT_FOUND)
+
     if request.method=='POST':
         profile=Profile(user=user)
         serializer=ProfileSerializers(profile,data=request.data)
@@ -82,16 +85,92 @@ def get_started(request):
     pass
 
 
-@api_view(['GET','POST'])
+@api_view(['GET','POST','DELETE'])
+@permission_classes((IsAuthenticatedOrReadOnly,))
 def category(request):
     if request.method=='GET':
         all_category=Category.objects.all()
         serializer=CategorySerializers(all_category,many=True)
         return Response(serializer.data,status=status.HTTP_200_OK)
-    if request.method=='POST':
-        serializer=CategorySerializers(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data,status=status.HTTP_201_CREATED)
-        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
+    elif request.method=='POST':
+        user=request.user
+        if user.is_superuser:
+            # Check token expire
+            token_expire_handler(token=request.auth)
+
+            serializer = CategorySerializers(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            res = {
+                'error': 'permission denied.you not superuser'
+            }
+            return Response(res, status=status.HTTP_400_BAD_REQUEST)
+    elif request.method=='DELETE':
+        # Check token expire
+        token_expire_handler(token=request.auth)
+
+        try:
+            temp_obj=Category.objects.get(id=request.data['id'])
+        except Category.DoesNotExist:
+            res={
+                'error':'category with this ID does not exist'
+            }
+            return Response(res,status=status.HTTP_404_NOT_FOUND)
+        user=request.user
+        if user.is_superuser:
+            temp_obj.delete()
+            res={
+                'message':'category deleted'
+            }
+            return Response(res,status=status.HTTP_204_NO_CONTENT)
+        res={
+            'error':'permission denied.you not superuser'
+        }
+        return Response(res,status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET','POST','DELETE'])
+def attribute(request):
+    if request.method=='GET':
+        all_attribute=Attribute.objects.all()
+        serializer=AttributeSerializers(all_attribute,many=True)
+        return Response(serializer.data,status=status.HTTP_200_OK)
+
+    elif request.method=='POST':
+        user=request.user
+        if user.is_superuser:
+            token_expire_handler(token=request.auth)
+            serializer = AttributeSerializers(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data,status=status.HTTP_201_CREATED)
+            return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+        res = {
+            'error': 'permission denied.you not superuser'
+        }
+        return Response(res, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method=='DELETE':
+        user=request.user
+        if user.is_superuser:
+            token_expire_handler(token=request.auth)
+            try:
+                temp_obj=Attribute.objects.get(id=request.data['id'])
+            except Attribute.DoesNotExist:
+                res = {
+                    'error': 'attribute with this ID does not exist'
+                }
+                return Response(res, status=status.HTTP_404_NOT_FOUND)
+            temp_obj.delete()
+            res = {
+                'message': 'attribute deleted'
+            }
+            return Response(res, status=status.HTTP_204_NO_CONTENT)
+        res = {
+            'error': 'permission denied.you not superuser'
+        }
+        return Response(res, status=status.HTTP_400_BAD_REQUEST)

@@ -11,6 +11,7 @@ urlpatterns = [
     path('profile/',views.profile,name='profile'),
     path('get_started/',views.get_started,name='home'), # in view return thing same as best_rating,new,off,...
     path('category/',views.category,name='category'),
+    path('attribute/',views.attribute,name='attribute')
     # path('products/<slug:pn>',details,name='product_detail'),
     # path('<slug:p_category>/<slug:category>/',all_products, name = 'all_products'),
     # path('',,name=''),
