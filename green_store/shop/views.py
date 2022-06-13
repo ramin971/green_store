@@ -3,8 +3,8 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed
-from rest_framework.permissions import IsAuthenticated,IsAuthenticatedOrReadOnly
-from .serializers import UserSerializers,ProductSerializers,CategorySerializers,ProfileSerializers,AttributeSerializers
+from rest_framework.permissions import IsAuthenticated,IsAuthenticatedOrReadOnly,AllowAny
+from .serializers import UserSerializers,ProductSerializers,CategorySerializers,ProfileSerializers,AttributeSerializers,CommentSerializers
 from .models import Product,Profile,Comment,Category,Attribute,Rating
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -32,6 +32,7 @@ def token_expire_handler(token):
     return left_time
 
 @api_view(['POST'])
+@permission_classes((AllowAny,))
 def register(request):
     serializer=UserSerializers(data=request.data)
     if serializer.is_valid():
@@ -45,7 +46,6 @@ def register(request):
     return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET','POST','PUT'])
-@permission_classes((IsAuthenticated,))
 def profile(request):
     try:
         user=request.user
@@ -109,6 +109,7 @@ def category(request):
                 'error': 'permission denied.you not superuser'
             }
             return Response(res, status=status.HTTP_400_BAD_REQUEST)
+
     elif request.method=='DELETE':
         # Check token expire
         token_expire_handler(token=request.auth)
@@ -133,14 +134,14 @@ def category(request):
         return Response(res,status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET','POST','DELETE'])
+@api_view(['POST','DELETE'])
 def attribute(request):
-    if request.method=='GET':
-        all_attribute=Attribute.objects.all()
-        serializer=AttributeSerializers(all_attribute,many=True)
-        return Response(serializer.data,status=status.HTTP_200_OK)
+    # if request.method=='GET':
+    #     all_attribute=Attribute.objects.all()
+    #     serializer=AttributeSerializers(all_attribute,many=True)
+    #     return Response(serializer.data,status=status.HTTP_200_OK)
 
-    elif request.method=='POST':
+    if request.method=='POST':
         user=request.user
         if user.is_superuser:
             token_expire_handler(token=request.auth)
@@ -150,7 +151,7 @@ def attribute(request):
                 return Response(serializer.data,status=status.HTTP_201_CREATED)
             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
         res = {
-            'error': 'permission denied.you not superuser'
+            'error': 'permission denied.you are not superuser'
         }
         return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
@@ -171,6 +172,46 @@ def attribute(request):
             }
             return Response(res, status=status.HTTP_204_NO_CONTENT)
         res = {
-            'error': 'permission denied.you not superuser'
+            'error': 'permission denied.you are not superuser'
         }
         return Response(res, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST','DELETE'])
+def comment(request):
+    if request.method=='POST':
+        try:
+            product=Product.objects.get(id=request.data['id'])
+        except Product.DoesNotExist:
+            res = {
+                'error': 'product with this ID does not exist'
+            }
+            return Response(res,status=status.HTTP_400_BAD_REQUEST)
+        user = request.user
+        temp_comment=Comment(product=product,user=user)
+        serializer = CommentSerializers(temp_comment,data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data,status=status.HTTP_201_CREATED)
+        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method=='DELETE':
+        user=request.user
+        if user.is_superuser:
+            token_expire_handler(token=request.auth)
+            try:
+                temp_obj=Comment.objects.get(id=request.data['id'])
+            except Attribute.DoesNotExist:
+                res = {
+                    'error': 'comment with this ID does not exist'
+                }
+                return Response(res, status=status.HTTP_404_NOT_FOUND)
+            temp_obj.delete()
+            res = {
+                'message': 'comment deleted'
+            }
+            return Response(res, status=status.HTTP_204_NO_CONTENT)
+        res = {
+            'error': 'permission denied.you are not superuser'
+        }
+        return Response(res, status=status.HTTP_400_BAD_REQUEST)
+

@@ -45,3 +45,9 @@ class AttributeSerializers(serializers.ModelSerializer):
     class Meta:
         model=Attribute
         fields=['id','name','value']
+
+class CommentSerializers(serializers.ModelSerializer):
+    class Meta:
+        model=Comment
+        # fields=[]
+        exclude=('user','product')

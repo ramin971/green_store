@@ -24,7 +24,7 @@ class Attribute(models.Model):
         return '{} -> {}'.format(self.name,self.value)
 
 class Category(models.Model):
-    name=models.CharField(max_length=50)
+    name=models.CharField(max_length=50,unique=True)
     slug=models.SlugField(unique=True)
     parent=models.ForeignKey('self',on_delete=models.CASCADE,blank=True,null=True,related_name='child')
 
@@ -49,9 +49,9 @@ class Category(models.Model):
 
 
 class Product(models.Model):
-    name=models.CharField(max_length=100)
+    name=models.CharField(max_length=100,unique=True)
     image=models.ImageField(upload_to='images')
-    attribute=models.ManyToManyField(Attribute,blank=True,related_name='product')
+    attribute=models.ManyToManyField(Attribute,blank=True,related_name='products')
     price=models.PositiveIntegerField()
     slug=models.SlugField(unique=True)
     category=models.ForeignKey(Category,on_delete=models.SET_NULL,null=True,related_name='products')
@@ -72,6 +72,7 @@ class Product(models.Model):
 class Comment(models.Model):
     user=models.ForeignKey(User,on_delete=models.CASCADE,related_name='comments')
     text=models.TextField()
+    show=models.BooleanField(default=False)
     product=models.ForeignKey(Product,on_delete=models.CASCADE,related_name='comments')
     # def __str__(self):
     #     return self.pk
