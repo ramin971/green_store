@@ -4,7 +4,8 @@ from rest_framework.decorators import api_view,permission_classes
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import IsAuthenticated,IsAuthenticatedOrReadOnly,AllowAny
-from .serializers import UserSerializers,ProductSerializers,CategorySerializers,ProfileSerializers,AttributeSerializers,CommentSerializers
+from .serializers import UserSerializers,ProductSerializers,CategorySerializers,\
+    ProfileSerializers,AttributeSerializers,CommentSerializers,RatingSerializers
 from .models import Product,Profile,Comment,Category,Attribute,Rating
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -215,3 +216,25 @@ def comment(request):
         }
         return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['POST',])
+@permission_classes((AllowAny,))
+def rating(request):
+    if request.method=='POST':
+        try:
+            product=Product.objects.get(id=request.data['id'])
+        except Product.DoesNotExist:
+            res = {
+                'error': 'product with this ID does not exist'
+            }
+            return Response(res, status=status.HTTP_400_BAD_REQUEST)
+        user=request.user
+        token_expire_handler(token=request.auth)
+        old_rate=Rating.objects.filter(user=user,product=product)
+        if old_rate.exists():
+            old_rate.delete()
+        temp_rating=Rating(user=user,product=product)
+        serializer=RatingSerializers(temp_rating,data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data,status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

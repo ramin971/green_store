@@ -51,3 +51,8 @@ class CommentSerializers(serializers.ModelSerializer):
         model=Comment
         # fields=[]
         exclude=('user','product')
+
+class RatingSerializers(serializers.ModelSerializer):
+    class Meta:
+        model=Rating
+        fields=['id','rate']

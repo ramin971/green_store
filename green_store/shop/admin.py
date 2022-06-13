@@ -34,12 +34,14 @@ class CategoryAdmin(admin.ModelAdmin):
     # list_display = ['name','slug','parent']
 
 class CommentAdmin(admin.ModelAdmin):
-    list_display = ['pk','user','product']
+    list_display = ['pk','user','product','show']
 
+class RatingAdmin(admin.ModelAdmin):
+    list_display =['pk','user','product','rate']
 
 admin.site.register(Profile,ProfileAdmin)
 admin.site.register(Attribute)
-admin.site.register(Rating)
+admin.site.register(Rating,RatingAdmin)
 admin.site.register(Comment,CommentAdmin)
 admin.site.register(Category,CategoryAdmin)
 admin.site.register(Product,ProductAdmin)
