@@ -86,3 +86,5 @@ class Rating(models.Model):
     #     constraints=[
     #         models.UniqueConstraint(fields=['user','product'],name='uniq_rating')
     #     ]
+
+# class cart/basket

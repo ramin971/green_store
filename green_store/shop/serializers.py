@@ -15,10 +15,19 @@ class UserSerializers(serializers.ModelSerializer):
         return user
 
 class ProductSerializers(serializers.ModelSerializer):
+    attribute_names=serializers.SerializerMethodField()
     class Meta:
         model=Product
-        # fields=['id','name','image','attribute','price','slug','category','description','stock','created']
-        fields='__all__'
+        fields=['id','name','image','price','description','stock','created','attribute_names']
+        # fields='__all__'
+#         exclude category and attribute
+    def get_attribute_names(self, obj):
+        # return obj.get_attribute
+        attributes=[]
+        for i in obj.attribute.all():
+            temp='{}({})'.format(i.name,i.value)
+            attributes.append(temp)
+        return attributes
 
 class CategorySerializers(serializers.ModelSerializer):
     parent_name=serializers.SerializerMethodField()
@@ -55,4 +64,5 @@ class CommentSerializers(serializers.ModelSerializer):
 class RatingSerializers(serializers.ModelSerializer):
     class Meta:
         model=Rating
+        # fields='__all__'   -->  product , user ro mikhad ba inke to view joda dadim pass nemidim inja behesh
         fields=['id','rate']

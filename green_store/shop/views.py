@@ -1,3 +1,5 @@
+import json
+
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view,permission_classes
@@ -181,7 +183,7 @@ def attribute(request):
 def comment(request):
     if request.method=='POST':
         try:
-            product=Product.objects.get(id=request.data['id'])
+            product=Product.objects.get(id=request.data['product_id'])
         except Product.DoesNotExist:
             res = {
                 'error': 'product with this ID does not exist'
@@ -200,7 +202,7 @@ def comment(request):
         if user.is_superuser:
             token_expire_handler(token=request.auth)
             try:
-                temp_obj=Comment.objects.get(id=request.data['id'])
+                temp_obj=Comment.objects.get(id=request.data['comment_id'])
             except Attribute.DoesNotExist:
                 res = {
                     'error': 'comment with this ID does not exist'
@@ -221,7 +223,7 @@ def comment(request):
 def rating(request):
     if request.method=='POST':
         try:
-            product=Product.objects.get(id=request.data['id'])
+            product=Product.objects.get(id=request.data['product_id'])
         except Product.DoesNotExist:
             res = {
                 'error': 'product with this ID does not exist'
@@ -238,3 +240,97 @@ def rating(request):
             serializer.save()
             return Response(serializer.data,status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET','POST'])
+@permission_classes((AllowAny,))
+# @permission_classes((IsAuthenticatedOrReadOnly,))
+def products(request):
+    if request.method=='GET':
+        try:
+            all_product=Product.objects.all()
+        except Product.DoesNotExist:
+            res = {
+                'error': 'any product does not exist'
+            }
+            return Response(res, status=status.HTTP_400_BAD_REQUEST)
+        serializer=ProductSerializers(all_product,many=True)
+        return Response(serializer.data,status=status.HTTP_200_OK)
+    elif request.method=='POST':
+        user=request.user
+        if user.is_superuser:
+            # token_expire_handler(token=request.auth)
+
+            temp_category=Category.objects.get(slug=request.data['category'])
+            att=request.data['attribute']
+            json_att=json.loads(att)
+            print(json_att)
+            print(type(json_att))
+            print('att: ',att)
+            print('type att: ',type(att))
+            names=[]
+            values=[]
+            # (names.append(i['name']) for i in att if not i['name'] in names)
+            for i in json_att:
+                print('for i in att ->i :****',i)
+                # print('for i in att ->i[name]:****',i['name'])
+                # print('for i in att ->i[value] :****',i['value'])
+
+                # if not i['name'] in names:
+                if not i.get('name') in names:
+                    print(i['name'])
+                    names.append(i['name'])
+                if not i['value'] in values:
+                    print(i['value'])
+                    values.append(i['value'])
+
+            print('values@@@@@@@@@@@@@@',values)
+            print('names:$$$$$$$$$$',names)
+
+            temp_attribute=Attribute.objects.filter(name__in=names,value__in=values)
+            product=Product(category=temp_category)
+            serializer = ProductSerializers(product,data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                # final_attribute=[]
+                for i in temp_attribute:
+                    print('attribute:############', i)
+                    product.attribute.add(i)
+                    # temp='{}({})'.format(i.name,i.value)
+                    # final_attribute.append(temp)
+                # print('final_attribute:#########',final_attribute)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        res = {
+                'error': 'permission denied.you are not superuser'
+            }
+        return Response(res, status=status.HTTP_400_BAD_REQUEST)
+
+            # posted_attribute_name_list=request.data['names'].split(',')
+            # temp_attribute=Attribute.objects.filter(name__in=posted_attribute_name_list)
+            # product=Product(category=temp_category)
+            # # product=Product(category=temp_category,attribute=temp_attribute)
+            # serializer = ProductSerializers(product,data=request.data)
+            # if serializer.is_valid():
+            #     serializer.save()
+            #     att=[]
+            #     for i in temp_attribute:
+            #         print('attribute:############', i)
+            #         product.attribute.add(i)
+            #         temp='{}({})'.format(i.name,i.value)
+            #         att.append(temp)
+            #     print('#########',att)
+            #     res=serializer.data
+            #     res['attribute']=att
+
+
+        #         return Response(res, status=status.HTTP_201_CREATED)
+        #     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # res = {
+        #     'error': 'permission denied.you are not superuser'
+        # }
+        # return Response(res, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET','PUT','DELETE'])
+def product_details(request):
+    pass
