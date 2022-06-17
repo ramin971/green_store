@@ -14,12 +14,10 @@ urlpatterns = [
     path('attribute/',views.attribute,name='attribute'),
     path('comment/',views.comment,name='comment'),
     path('rating/',views.rating,name='rating'),
-    path('products/',views.products,name='products'),
-    # path('products/<slug:pn>',details,name='product_detail'),
-    # path('<slug:p_category>/<slug:category>/',all_products, name = 'all_products'),
-    # path('',,name=''),
-    # path('',,name=''),
-    # path('',,name=''),
+    path('addproduct/',views.add_product,name='add_product'),
+    path('products/<slug:product_slug>', views.product_details, name='product_detail'),
+    path('<slug:category_slug>',views.product_by_category,name='products_by_category'),
+
  ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL,document_root=settings.MEDIA_ROOT)
