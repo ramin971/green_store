@@ -1,5 +1,3 @@
-import json
-
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.decorators import api_view,permission_classes
@@ -7,12 +5,13 @@ from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import IsAuthenticated,IsAuthenticatedOrReadOnly,AllowAny
 from .serializers import UserSerializers,ProductSerializers,CategorySerializers,\
-    ProfileSerializers,AttributeSerializers,CommentSerializers,RatingSerializers
+    ProfileSerializers,AttributeSerializers,CommentSerializers,RatingSerializers,ProductDetailSerializers
 from .models import Product,Profile,Comment,Category,Attribute,Rating
 from django.contrib.auth.models import User
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
+import json
 
 
 # Create your views here.
@@ -48,6 +47,17 @@ def register(request):
         return Response(result,status=status.HTTP_201_CREATED)
     return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['POST'])
+def logout(request):
+    user=request.user
+    user_token=request.auth
+    if user_token:
+        user_token.delete()
+        message='Dear {}, You logout successfully. your Token deleted'.format(user)
+        res={
+            'message': message
+        }
+        return Response(res,status=status.HTTP_200_OK)
 @api_view(['GET','POST','PUT'])
 def profile(request):
     try:
@@ -109,7 +119,7 @@ def category(request):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         else:
             res = {
-                'error': 'permission denied.you not superuser'
+                'error': 'Permission denied. You are not SuperUser'
             }
             return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
@@ -132,17 +142,18 @@ def category(request):
             }
             return Response(res,status=status.HTTP_204_NO_CONTENT)
         res={
-            'error':'permission denied.you not superuser'
+            'error':'Permission denied. You are not SuperUser'
         }
         return Response(res,status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['POST','DELETE'])
+@api_view(['GET','POST','DELETE'])
+@permission_classes((IsAuthenticatedOrReadOnly,))
 def attribute(request):
-    # if request.method=='GET':
-    #     all_attribute=Attribute.objects.all()
-    #     serializer=AttributeSerializers(all_attribute,many=True)
-    #     return Response(serializer.data,status=status.HTTP_200_OK)
+    if request.method=='GET':
+        all_attribute=Attribute.objects.all()
+        serializer=AttributeSerializers(all_attribute,many=True)
+        return Response(serializer.data,status=status.HTTP_200_OK)
 
     if request.method=='POST':
         user=request.user
@@ -154,7 +165,7 @@ def attribute(request):
                 return Response(serializer.data,status=status.HTTP_201_CREATED)
             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
         res = {
-            'error': 'permission denied.you are not superuser'
+            'error': 'Permission denied. You are not SuperUser'
         }
         return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
@@ -175,7 +186,7 @@ def attribute(request):
             }
             return Response(res, status=status.HTTP_204_NO_CONTENT)
         res = {
-            'error': 'permission denied.you are not superuser'
+            'error': 'Permission denied. You are not SuperUser'
         }
         return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
@@ -214,7 +225,7 @@ def comment(request):
             }
             return Response(res, status=status.HTTP_204_NO_CONTENT)
         res = {
-            'error': 'permission denied.you are not superuser'
+            'error': 'Permission denied. You are not SuperUser'
         }
         return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
@@ -248,7 +259,7 @@ def add_product(request):
         if user.is_superuser:
             token_expire_handler(token=request.auth)
 
-            temp_category=Category.objects.get(slug=request.data['category'])
+            temp_category=Category.objects.get(slug=request.data['category_slug'])
             att=request.data['attribute']
             json_att=json.loads(att)
             print(json_att)
@@ -257,7 +268,7 @@ def add_product(request):
             print('type att: ',type(att))
             names=[]
             values=[]
-            # (names.append(i['name']) for i in att if not i['name'] in names)
+            # (names.append(i['name']) for i in json_att if not i['name'] in names)
             for i in json_att:
                 print('for i in att ->i :****',i)
                 if not i.get('name') in names:
@@ -281,13 +292,13 @@ def add_product(request):
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         res = {
-                'error': 'permission denied.you are not superuser'
+                'error': 'Permission denied. You are not SuperUser'
             }
         return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 @permission_classes((AllowAny,))
-def product_by_category(request,category_slug):
+def products_by_category(request,category_slug):
     if request.method=='GET':
         try:
             products=Product.objects.filter(category__slug=category_slug)
@@ -296,7 +307,11 @@ def product_by_category(request,category_slug):
                 'error': 'any product does not exist'
             }
             return Response(res, status=status.HTTP_400_BAD_REQUEST)
+
         serializer=ProductSerializers(products,many=True)
+        # remove Unnecessary data from serializer.data to send client
+        for i in serializer.data:
+            i.pop('description')
         return Response(serializer.data,status=status.HTTP_200_OK)
 
 
@@ -312,19 +327,66 @@ def product_details(request,product_slug):
         return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
     if request.method=='GET':
-        serializer=ProductSerializers(product)
+        serializer=ProductDetailSerializers(product)
         return Response(serializer.data,status=status.HTTP_200_OK)
 
     elif request.method=='PUT':
         user=request.user
         if user.is_superuser:
             token_expire_handler(request.auth)
-            serializer=ProductSerializers(product,data=request.data,partial=True)
+            print('########req.data',request.data)
+            if 'attribute' in request.data:
+                print('@@@@@@@@@1@@@@@@@@@')
+                attr=request.data['attribute']
+                json_attr=json.loads(attr)
+                names = []
+                values = []
+                for i in json_attr:
+                    print('for i in att ->i :****', i)
+                    if not i.get('name') in names:
+                        print(i['name'])
+                        names.append(i['name'])
+                    if not i['value'] in values:
+                        print(i['value'])
+                        values.append(i['value'])
+
+                print('values@@@@@@@@@@@@@@', values)
+                print('names:$$$$$$$$$$', names)
+
+                temp_attribute = Attribute.objects.filter(name__in=names, value__in=values)
+                print('attribute before remove:############', product.attribute.all())
+                product.attribute.clear()
+                print('attribute after remove:############', product.attribute.all())
+
+                for att in temp_attribute:
+                    print('attribute:############', att)
+                    product.attribute.add(att)
+
+            else:
+                print('@@@@@@@@@_no1_@@@@@@@@@')
+
+            serializer=ProductDetailSerializers(product,data=request.data,partial=True)
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data,status=status.HTTP_205_RESET_CONTENT)
+                res=serializer.data
+                res['message']='update successfully'
+                return Response(res,status=status.HTTP_205_RESET_CONTENT)
             return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
         res = {
-            'error': 'permission denied.you are not superuser'
+            'error': 'Permission denied. You are not SuperUser'
         }
         return Response(res, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method=='DELETE':
+        user = request.user
+        if user.is_superuser:
+            token_expire_handler(request.auth)
+            product.delete()
+            result = {
+                'massage': 'post deleted successfully'
+            }
+            return Response(result, status=status.HTTP_204_NO_CONTENT)
+        res={
+            'error': 'Permission denied. You are not SuperUser'
+        }
+        return Response(res,status=status.HTTP_400_BAD_REQUEST)
