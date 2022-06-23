@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Product,Profile,Comment,Category,Attribute,Rating
 from django.contrib.auth.models import User
 from django.db.models import Avg,Sum
-
+from django.contrib.auth.password_validation import validate_password
 
 
 class UserSerializers(serializers.ModelSerializer):
@@ -10,11 +10,41 @@ class UserSerializers(serializers.ModelSerializer):
         model=User
         fields=['id','username','password']
         extra_kwargs={'id':{'read_only':True},'password':{'write_only':True}}
+    def validate_password(self,value):
+        print('value',value)
+        validate_password(value)
+        return value
     def create(self, validated_data):
         username=validated_data['username']
         password=validated_data['password']
         user=User.objects.create_user(username=username,password=password)
         return user
+
+class ChangePasswordSerializers(serializers.Serializer):
+    old_password=serializers.CharField(required=True,write_only=True)
+    new_password=serializers.CharField(required=True,write_only=True)
+
+    def validate_new_password(self,value):
+        validate_password(value)
+        print('valid new pass')
+        return value
+
+    def validate_old_password(self,value):
+        print("context",self.context)
+        user = self.context['request'].user
+        print(user)
+        if not user.check_password(value):
+            raise serializers.ValidationError(
+                'Your old password was entered incorrectly. Please enter it again.'
+            )
+        return value
+    def save(self, **kwargs):
+        password=self.validated_data['new_password']
+        user=self.context['request'].user
+        user.set_password(password)
+        user.save()
+        return user
+
 #
 # class ProductSerializers(serializers.ModelSerializer):
 #     attribute_names=serializers.SerializerMethodField()

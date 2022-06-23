@@ -5,7 +5,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import IsAuthenticated,IsAuthenticatedOrReadOnly,AllowAny
 from .serializers import UserSerializers,ProductSerializers,CategorySerializers,\
-    ProfileSerializers,AttributeSerializers,CommentSerializers,RatingSerializers,ProductDetailSerializers
+    ProfileSerializers,AttributeSerializers,CommentSerializers,RatingSerializers,ProductDetailSerializers,ChangePasswordSerializers
 from .models import Product,Profile,Comment,Category,Attribute,Rating
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -47,13 +47,48 @@ def register(request):
         return Response(result,status=status.HTTP_201_CREATED)
     return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['PUT'])
+def change_password(request):
+    # try:
+    #     user=request.user
+    # except User.DoesNotExist:
+    #     return Response(status=status.HTTP_401_UNAUTHORIZED)
+
+    # Check token Expire:
+    token_expire_handler(token=request.auth)
+    serializer=ChangePasswordSerializers(data=request.data,context={'request':request})
+    print('req.data',request.data)
+    if serializer.is_valid():
+        print('ser.data',serializer.data)
+        serializer.save()
+
+        # --> if remove ChangePasswordSerializers.validate_old_password and save
+        # print('valid')
+        # old_password=serializer.data.get('old_password')
+        # print(serializer.data)
+        # print(old_password)
+        # print(type(old_password))
+        # if not user.check_password(old_password):
+        #     res={
+        #         'error': 'Wrong password'
+        #     }
+        #     return Response(res,status=status.HTTP_400_BAD_REQUEST)
+        # user.set_password(serializer.data.get('new_password'))
+        # user.save()
+        res={
+            'message': 'Your Password Update Successfully'
+        }
+        return Response(res,status=status.HTTP_200_OK)
+    return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+
+
 @api_view(['POST'])
 def logout(request):
     user=request.user
     user_token=request.auth
     if user_token:
         user_token.delete()
-        message='Dear {}, You logout successfully. your Token deleted'.format(user)
+        message='Dear {}, You logout successfully and your Token deleted'.format(user)
         res={
             'message': message
         }
