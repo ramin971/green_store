@@ -3,6 +3,7 @@ from .models import Product,Profile,Comment,Category,Attribute,Rating
 from django.contrib.auth.models import User
 from django.db.models import Avg,Sum
 from django.contrib.auth.password_validation import validate_password
+from rest_framework.pagination import PageNumberPagination
 
 
 class UserSerializers(serializers.ModelSerializer):
@@ -137,4 +138,12 @@ class ProductDetailSerializers(serializers.ModelSerializer):
 
     def get_comments(self,obj):
         comments=obj.comments.filter(show=True).values()
-        return comments
+        paginator = PageNumberPagination()
+        paginator.page_size = 1
+        # serializer=CommentSerializers(comments,many=True,context={'request': self.context['request']})
+        # result_page = paginator.paginate_queryset(serializer.data,self.context['request'] )
+        # return result_page
+        # ^ or ->
+        result_page = paginator.paginate_queryset(comments,self.context['request'] )
+        serializer=CommentSerializers(result_page,many=True)
+        return serializer.data

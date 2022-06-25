@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view,permission_classes
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated,IsAuthenticatedOrReadOnly,AllowAny
 from .serializers import UserSerializers,ProductSerializers,CategorySerializers,\
     ProfileSerializers,AttributeSerializers,CommentSerializers,RatingSerializers,ProductDetailSerializers,ChangePasswordSerializers
@@ -17,8 +18,8 @@ import json
 # Create your views here.
 
 def token_expire_handler(token):
-    print('#############timezone.now: ',timezone.now())
-    print('#############token_created: ',token.created)
+    # print('#############timezone.now: ',timezone.now())
+    # print('#############token_created: ',token.created)
     time_elapsed = timezone.now() - token.created
     left_time = timedelta(seconds = settings.TOKEN_EXPIRED_AFTER_SECONDS) - time_elapsed
     print('##########left_time= ',left_time)
@@ -57,9 +58,9 @@ def change_password(request):
     # Check token Expire:
     token_expire_handler(token=request.auth)
     serializer=ChangePasswordSerializers(data=request.data,context={'request':request})
-    print('req.data',request.data)
+    # print('req.data',request.data)
     if serializer.is_valid():
-        print('ser.data',serializer.data)
+        # print('ser.data',serializer.data)
         serializer.save()
 
         # --> if remove ChangePasswordSerializers.validate_old_password and save
@@ -97,7 +98,6 @@ def logout(request):
 def profile(request):
     try:
         user=request.user
-        print(user)
     except User.DoesNotExist:
         return Response(status=status.HTTP_401_UNAUTHORIZED)
     # Check token Expire:
@@ -264,7 +264,7 @@ def comment(request):
         }
         return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['POST',])
+@api_view(['POST'])
 @permission_classes((AllowAny,))
 def rating(request):
     if request.method=='POST':
@@ -297,24 +297,24 @@ def add_product(request):
             temp_category=Category.objects.get(slug=request.data['category_slug'])
             att=request.data['attribute']
             json_att=json.loads(att)
-            print(json_att)
-            print(type(json_att))
-            print('att: ',att)
-            print('type att: ',type(att))
+            # print(json_att)
+            # print(type(json_att))
+            # print('att: ',att)
+            # print('type att: ',type(att))
             names=[]
             values=[]
             # (names.append(i['name']) for i in json_att if not i['name'] in names)
             for i in json_att:
-                print('for i in att ->i :****',i)
+                # print('for i in att ->i :****',i)
                 if not i.get('name') in names:
-                    print(i['name'])
+                    # print(i['name'])
                     names.append(i['name'])
                 if not i['value'] in values:
-                    print(i['value'])
+                    # print(i['value'])
                     values.append(i['value'])
 
-            print('values@@@@@@@@@@@@@@',values)
-            print('names:$$$$$$$$$$',names)
+            # print('values@@@@@@@@@@@@@@',values)
+            # print('names:$$$$$$$$$$',names)
 
             temp_attribute=Attribute.objects.filter(name__in=names,value__in=values)
             product=Product(category=temp_category)
@@ -322,7 +322,7 @@ def add_product(request):
             if serializer.is_valid():
                 serializer.save()
                 for i in temp_attribute:
-                    print('attribute:############', i)
+                    # print('attribute:############', i)
                     product.attribute.add(i)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -342,12 +342,16 @@ def products_by_category(request,category_slug):
                 'error': 'any product does not exist'
             }
             return Response(res, status=status.HTTP_400_BAD_REQUEST)
+        #Pageination
+        paginator=PageNumberPagination()
+        paginator.page_size=4
+        result_page=paginator.paginate_queryset(products,request)
 
-        serializer=ProductSerializers(products,many=True)
+        serializer=ProductSerializers(result_page,many=True)
         # remove Unnecessary data from serializer.data to send client
         for i in serializer.data:
             i.pop('description')
-        return Response(serializer.data,status=status.HTTP_200_OK)
+        return paginator.get_paginated_response(serializer.data)
 
 
 @api_view(['GET','PUT','DELETE'])
@@ -362,43 +366,46 @@ def product_details(request,product_slug):
         return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
     if request.method=='GET':
-        serializer=ProductDetailSerializers(product)
-        return Response(serializer.data,status=status.HTTP_200_OK)
-
+        # Paginate Comments of Product + ProductDetailSerializer.get_comments
+        paginator = PageNumberPagination()
+        paginator.page_size = 1
+        paginator.paginate_queryset(product.comments.filter(show=True), request)
+        serializer = ProductDetailSerializers(product,context={'request':request})
+        return paginator.get_paginated_response(serializer.data)
     elif request.method=='PUT':
         user=request.user
         if user.is_superuser:
             token_expire_handler(request.auth)
-            print('########req.data',request.data)
+            # print('########req.data',request.data)
             if 'attribute' in request.data:
-                print('@@@@@@@@@1@@@@@@@@@')
+                # print('@@@@@@@@@1@@@@@@@@@')
                 attr=request.data['attribute']
                 json_attr=json.loads(attr)
                 names = []
                 values = []
                 for i in json_attr:
-                    print('for i in att ->i :****', i)
+                    # print('for i in att ->i :****', i)
                     if not i.get('name') in names:
-                        print(i['name'])
+                        # print(i['name'])
                         names.append(i['name'])
                     if not i['value'] in values:
-                        print(i['value'])
+                        # print(i['value'])
                         values.append(i['value'])
 
-                print('values@@@@@@@@@@@@@@', values)
-                print('names:$$$$$$$$$$', names)
+                # print('values@@@@@@@@@@@@@@', values)
+                # print('names:$$$$$$$$$$', names)
 
                 temp_attribute = Attribute.objects.filter(name__in=names, value__in=values)
-                print('attribute before remove:############', product.attribute.all())
+                # print('attribute before remove:############', product.attribute.all())
                 product.attribute.clear()
-                print('attribute after remove:############', product.attribute.all())
+                # print('attribute after remove:############', product.attribute.all())
 
                 for att in temp_attribute:
-                    print('attribute:############', att)
+                    # print('attribute:############', att)
                     product.attribute.add(att)
 
-            else:
-                print('@@@@@@@@@_no1_@@@@@@@@@')
+            # else:
+            #     print('@@@@@@@@@_no1_@@@@@@@@@')
 
             serializer=ProductDetailSerializers(product,data=request.data,partial=True)
             if serializer.is_valid():
