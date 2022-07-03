@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Product,Profile,Comment,Category,Attribute,Rating
 from django.contrib.auth.models import User
-from django.db.models import Avg,Sum
+from django.db.models import Avg
 from django.contrib.auth.password_validation import validate_password
 from rest_framework.pagination import PageNumberPagination
 
@@ -46,23 +46,6 @@ class ChangePasswordSerializers(serializers.Serializer):
         user.save()
         return user
 
-#
-# class ProductSerializers(serializers.ModelSerializer):
-#     attribute_names=serializers.SerializerMethodField()
-#     class Meta:
-#         model=Product
-#         fields=['id','name','image','price','description','stock','created','attribute_names']
-#         # fields='__all__'
-# #         exclude category and attribute
-#     def get_attribute_names(self, obj):
-#         # return obj.get_attribute
-#         attributes=[]
-#         for i in obj.attribute.all():
-#             temp='{}({})'.format(i.name,i.value)
-#             attributes.append(temp)
-#         return attributes
-
-
 
 class CategorySerializers(serializers.ModelSerializer):
     parent_name=serializers.SerializerMethodField()
@@ -82,8 +65,9 @@ class CategorySerializers(serializers.ModelSerializer):
 class ProfileSerializers(serializers.ModelSerializer):
     class Meta:
         model=Profile
-        # fields='__all__'
-        exclude=('user',)
+        fields='__all__'
+        extra_kwargs = {"user": {"read_only": True}}
+
 
 class AttributeSerializers(serializers.ModelSerializer):
     class Meta:
@@ -93,8 +77,8 @@ class AttributeSerializers(serializers.ModelSerializer):
 class CommentSerializers(serializers.ModelSerializer):
     class Meta:
         model=Comment
-        # fields=[]
-        exclude=('user','product')
+        fields='__all__'
+        extra_kwargs={"user":{"read_only":True},"product":{"read_only":True},"show":{"read_only":True}}
 
 class RatingSerializers(serializers.ModelSerializer):
     class Meta:
@@ -103,29 +87,17 @@ class RatingSerializers(serializers.ModelSerializer):
         fields=['id','rate']
 
 class ProductSerializers(serializers.ModelSerializer):
-    # attribute_names=serializers.SerializerMethodField()
     rate=serializers.SerializerMethodField()
-    # attribute=AttributeSerializers(many=True,read_only=True)
     class Meta:
         model=Product
         fields=['id','name','image','price','description','stock','created','rate']
 
-        # fields='__all__'
-#         exclude category and attribute
-#     def get_attribute_names(self, obj):
-#         # return obj.get_attribute
-#         attributes=[]
-#         for i in obj.attribute.all():
-#             temp='{}({})'.format(i.name,i.value)
-#             attributes.append(temp)
-#         return attributes
     def get_rate(self,obj):
         this_product = obj.rates.aggregate(avg=Avg('rate'))
         return this_product['avg']
 
 class ProductDetailSerializers(serializers.ModelSerializer):
     rate=serializers.SerializerMethodField()
-    # comments=CommentSerializers(many=True,read_only=True)
     comments=serializers.SerializerMethodField()
     attribute=AttributeSerializers(many=True,read_only=True)
     class Meta:

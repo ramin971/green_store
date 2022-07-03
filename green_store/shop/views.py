@@ -4,7 +4,7 @@ from rest_framework.decorators import api_view,permission_classes
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated,IsAuthenticatedOrReadOnly,AllowAny
+from rest_framework.permissions import IsAuthenticatedOrReadOnly,AllowAny
 from .serializers import UserSerializers,ProductSerializers,CategorySerializers,\
     ProfileSerializers,AttributeSerializers,CommentSerializers,RatingSerializers,ProductDetailSerializers,ChangePasswordSerializers
 from .models import Product,Profile,Comment,Category,Attribute,Rating
@@ -50,32 +50,14 @@ def register(request):
 
 @api_view(['PUT'])
 def change_password(request):
-    # try:
-    #     user=request.user
-    # except User.DoesNotExist:
-    #     return Response(status=status.HTTP_401_UNAUTHORIZED)
 
     # Check token Expire:
     token_expire_handler(token=request.auth)
     serializer=ChangePasswordSerializers(data=request.data,context={'request':request})
-    # print('req.data',request.data)
+
     if serializer.is_valid():
-        # print('ser.data',serializer.data)
         serializer.save()
 
-        # --> if remove ChangePasswordSerializers.validate_old_password and save
-        # print('valid')
-        # old_password=serializer.data.get('old_password')
-        # print(serializer.data)
-        # print(old_password)
-        # print(type(old_password))
-        # if not user.check_password(old_password):
-        #     res={
-        #         'error': 'Wrong password'
-        #     }
-        #     return Response(res,status=status.HTTP_400_BAD_REQUEST)
-        # user.set_password(serializer.data.get('new_password'))
-        # user.save()
         res={
             'message': 'Your Password Update Successfully'
         }
@@ -108,7 +90,9 @@ def profile(request):
             profile=Profile.objects.get(user=user)
             serializer=ProfileSerializers(profile)
             res=serializer.data
+            res['user_id']=user.id
             res['username']=user.username
+            res.pop('user')
             return Response(res,status=status.HTTP_200_OK)
         else:
             res={
@@ -193,6 +177,7 @@ def attribute(request):
     if request.method=='POST':
         user=request.user
         if user.is_superuser:
+            # Check token expire
             token_expire_handler(token=request.auth)
             serializer = AttributeSerializers(data=request.data)
             if serializer.is_valid():
@@ -207,6 +192,7 @@ def attribute(request):
     elif request.method=='DELETE':
         user=request.user
         if user.is_superuser:
+            # Check token expire
             token_expire_handler(token=request.auth)
             try:
                 temp_obj=Attribute.objects.get(id=request.data['id'])
@@ -229,13 +215,15 @@ def attribute(request):
 def comment(request):
     if request.method=='POST':
         try:
-            product=Product.objects.get(id=request.data['product_id'])
+            product=Product.objects.get(slug=request.data['product_slug'])
         except Product.DoesNotExist:
             res = {
-                'error': 'product with this ID does not exist'
+                'error': 'product with this Slug does not exist'
             }
             return Response(res,status=status.HTTP_400_BAD_REQUEST)
         user = request.user
+        # Check token expire
+        token_expire_handler(token=request.auth)
         temp_comment=Comment(product=product,user=user)
         serializer = CommentSerializers(temp_comment,data=request.data)
         if serializer.is_valid():
@@ -246,6 +234,7 @@ def comment(request):
     elif request.method=='DELETE':
         user=request.user
         if user.is_superuser:
+            # Check token expire
             token_expire_handler(token=request.auth)
             try:
                 temp_obj=Comment.objects.get(id=request.data['comment_id'])
@@ -269,13 +258,14 @@ def comment(request):
 def rating(request):
     if request.method=='POST':
         try:
-            product=Product.objects.get(id=request.data['product_id'])
+            product=Product.objects.get(slug=request.data['product_slug'])
         except Product.DoesNotExist:
             res = {
-                'error': 'product with this ID does not exist'
+                'error': 'product with this Slug does not exist'
             }
             return Response(res, status=status.HTTP_400_BAD_REQUEST)
         user=request.user
+        # Check token expire
         token_expire_handler(token=request.auth)
         old_rate=Rating.objects.filter(user=user,product=product)
         if old_rate.exists():
@@ -292,6 +282,7 @@ def add_product(request):
     if request.method=='POST':
         user=request.user
         if user.is_superuser:
+            # Check token expire
             token_expire_handler(token=request.auth)
 
             temp_category=Category.objects.get(slug=request.data['category_slug'])
@@ -375,7 +366,8 @@ def product_details(request,product_slug):
     elif request.method=='PUT':
         user=request.user
         if user.is_superuser:
-            token_expire_handler(request.auth)
+            # Check token expire
+            token_expire_handler(token=request.auth)
             # print('########req.data',request.data)
             if 'attribute' in request.data:
                 # print('@@@@@@@@@1@@@@@@@@@')
@@ -422,7 +414,8 @@ def product_details(request,product_slug):
     elif request.method=='DELETE':
         user = request.user
         if user.is_superuser:
-            token_expire_handler(request.auth)
+            # Check token expire
+            token_expire_handler(token=request.auth)
             product.delete()
             result = {
                 'massage': 'post deleted successfully'
