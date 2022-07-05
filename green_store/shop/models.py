@@ -53,6 +53,7 @@ class Product(models.Model):
     image=models.ImageField(upload_to='images')
     attribute=models.ManyToManyField(Attribute,blank=True,related_name='products')
     price=models.PositiveIntegerField()
+    discount=models.PositiveSmallIntegerField(null=True,blank=True,validators=[MinValueValidator(1),MaxValueValidator(99)])
     slug=models.SlugField(unique=True,db_index=True)
     category=models.ForeignKey(Category,on_delete=models.SET_NULL,null=True,related_name='products')
     description=models.TextField(blank=True,null=True)

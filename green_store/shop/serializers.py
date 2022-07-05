@@ -88,21 +88,30 @@ class RatingSerializers(serializers.ModelSerializer):
 
 class ProductSerializers(serializers.ModelSerializer):
     rate=serializers.SerializerMethodField()
+    new_price=serializers.SerializerMethodField()
     class Meta:
         model=Product
-        fields=['id','name','image','price','description','stock','created','rate']
+        fields=['id','name','image','price','description','stock','created','rate','discount','new_price']
 
     def get_rate(self,obj):
         this_product = obj.rates.aggregate(avg=Avg('rate'))
         return this_product['avg']
 
+    def get_new_price(self,obj):
+        old_price = obj.price
+        discount = obj.discount
+        if discount is not None:
+            new_price = old_price - (discount * old_price // 100)
+            return new_price
+
 class ProductDetailSerializers(serializers.ModelSerializer):
     rate=serializers.SerializerMethodField()
     comments=serializers.SerializerMethodField()
+    new_price=serializers.SerializerMethodField()
     attribute=AttributeSerializers(many=True,read_only=True)
     class Meta:
         model=Product
-        fields=['id','name','image','price','description','stock','created','attribute','rate','comments']
+        fields=['id','name','image','price','discount','new_price','rate','stock','created','description','attribute','comments']
 
     def get_rate(self,obj):
         avg_rate=obj.rates.aggregate(avg=Avg('rate'))
@@ -119,3 +128,10 @@ class ProductDetailSerializers(serializers.ModelSerializer):
         result_page = paginator.paginate_queryset(comments,self.context['request'] )
         serializer=CommentSerializers(result_page,many=True)
         return serializer.data
+
+    def get_new_price(self,obj):
+        old_price = obj.price
+        discount = obj.discount
+        if discount is not None:
+            new_price = old_price - (discount * old_price // 100)
+            return new_price

@@ -10,22 +10,19 @@ class ProfileAdmin(admin.ModelAdmin):
 def avg_rate(obj):
     this_product=obj.rates.aggregate(avg=Avg('rate'))
     return this_product['avg']
-# def avg_rate(obj):
-#     this_product=obj.rates.values_list('rate',flat=True)
-#     k=obj.rates.aggregate(sum=Sum('rate'))
-#     print(k['sum']/len(this_product))
 
-    # l=0
-    # for i in this_product:
-    #     l=l+i
-    # print('average=',l/len(this_product))
-    # print(this_product)
-    # return this_product['avg']
+def new_price(obj):
+    old_price=obj.price
+    discount=obj.discount
+    if discount is not None:
+        print('>>>>>>>>>>is not non')
+        new_price = old_price - (discount * old_price // 100)
+        return new_price
 
 
 class ProductAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug':('name',)}
-    list_display = ['name','category','price',avg_rate,'stock','get_attribute','created']
+    list_display = ['name','category',new_price,avg_rate,'stock','get_attribute','discount','price','created']
     list_filter = ['category','created','price']
     search_fields = ['name','color']
 

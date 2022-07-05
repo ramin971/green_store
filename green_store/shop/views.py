@@ -268,6 +268,7 @@ def rating(request):
         # Check token expire
         token_expire_handler(token=request.auth)
         old_rate=Rating.objects.filter(user=user,product=product)
+        # remove old rate if a user rates twice to product
         if old_rate.exists():
             old_rate.delete()
         temp_rating=Rating(user=user,product=product)
@@ -288,24 +289,16 @@ def add_product(request):
             temp_category=Category.objects.get(slug=request.data['category_slug'])
             att=request.data['attribute']
             json_att=json.loads(att)
-            # print(json_att)
-            # print(type(json_att))
-            # print('att: ',att)
-            # print('type att: ',type(att))
             names=[]
             values=[]
-            # (names.append(i['name']) for i in json_att if not i['name'] in names)
+            # get the desired attributes
             for i in json_att:
-                # print('for i in att ->i :****',i)
                 if not i.get('name') in names:
                     # print(i['name'])
                     names.append(i['name'])
                 if not i['value'] in values:
                     # print(i['value'])
                     values.append(i['value'])
-
-            # print('values@@@@@@@@@@@@@@',values)
-            # print('names:$$$$$$$$$$',names)
 
             temp_attribute=Attribute.objects.filter(name__in=names,value__in=values)
             product=Product(category=temp_category)
@@ -370,13 +363,11 @@ def product_details(request,product_slug):
             token_expire_handler(token=request.auth)
             # print('########req.data',request.data)
             if 'attribute' in request.data:
-                # print('@@@@@@@@@1@@@@@@@@@')
                 attr=request.data['attribute']
                 json_attr=json.loads(attr)
                 names = []
                 values = []
                 for i in json_attr:
-                    # print('for i in att ->i :****', i)
                     if not i.get('name') in names:
                         # print(i['name'])
                         names.append(i['name'])
@@ -384,14 +375,11 @@ def product_details(request,product_slug):
                         # print(i['value'])
                         values.append(i['value'])
 
-                # print('values@@@@@@@@@@@@@@', values)
-                # print('names:$$$$$$$$$$', names)
 
                 temp_attribute = Attribute.objects.filter(name__in=names, value__in=values)
-                # print('attribute before remove:############', product.attribute.all())
+                # remove old attribute
                 product.attribute.clear()
-                # print('attribute after remove:############', product.attribute.all())
-
+                # add new attribute
                 for att in temp_attribute:
                     # print('attribute:############', att)
                     product.attribute.add(att)
