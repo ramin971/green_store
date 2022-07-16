@@ -13,7 +13,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
 import json
-
+from itertools import chain
 
 # Create your views here.
 
@@ -320,12 +320,103 @@ def add_product(request):
 def products_by_category(request,category_slug):
     if request.method=='GET':
         try:
+            # Product.objects.filter(sto)
             products=Product.objects.filter(category__slug=category_slug)
         except Product.DoesNotExist:
             res = {
                 'error': 'any product does not exist'
             }
             return Response(res, status=status.HTTP_400_BAD_REQUEST)
+
+    # Search-Filter
+        qp=request.query_params.copy()
+        discount=qp.get('discount')
+        stock=qp.get('stock')
+        max_price=qp.get('maxprice')
+        min_price=qp.get('minprice')
+
+        if (max_price and min_price):
+            products=products.filter(price__range=(min_price,max_price))
+            qp.pop('maxprice')
+            qp.pop('minprice')
+        print('qp after maxmin=',qp)
+
+        if discount:
+            if discount == '1':
+                products=products.filter(discount__isnull=False)
+            qp.pop('discount')
+        print('qp after discount=',qp)
+
+        if stock:
+            if stock == '1':
+                products=products.filter(stock__gt=0)
+            qp.pop('stock')
+        print('qp after stock=',qp)
+        print('qp key=',qp.keys())
+        print('qp value=',qp.values())
+        names=qp.keys()
+        values=[]
+
+        for item in qp:
+            for value in qp.getlist(item):
+                print('value',value)
+                values.append(value)
+
+        temp_att=Attribute.objects.filter(name__in=names,value__in=values)
+        print(temp_att)
+
+        if temp_att.exists():
+            products=products.filter(attribute__in=temp_att)
+    # end Search-Filter
+    # Ordering
+
+
+            # att=Attribute.objects.filter(name)
+            # if item in temp_att:
+        # if att is not None:
+        #     # products=product.filter(attribute__in=temp_att  or --> att__name__in=att.items.keys()
+        #
+        #     pass
+
+        # for i in request.query_params:
+        #     print(i)
+        #     if i=='discount':
+        #         if discount=='1':
+        #             print('11111')
+        #             products=products.filter(discount__isnull=False)
+        #             print(products)
+        #
+        #     elif i=='stock':
+        #         if stock=='1':
+        #             print('11111')
+        #             products=products.filter(stock__gt=1)
+        #             print(products)
+        #
+        #     elif i=='att':
+        #         pass
+        #     elif i=='price':
+        #
+        #         pass
+        # a=request.GET.dict().copy()
+        # b=request.query_params.copy()
+        # b.pop('discount')
+        # # request.GET.dict().pop(discount)
+        # c=request.query_params.pop('stock')
+        # request.query_params.get(discount)
+        # print('req.g.dict.all#########',request.GET.dict())
+        # # print('req.g.dict.all-discount#########',request.GET.dict().pop(discount))
+        # # print('req.g.dict.all-discount#########',a.pop(discount))
+        # print('query_params.all#########',request.query_params)
+        # print('query_params.all.copy-stock#########',b)
+        # print('query_params.all#########',request.query_params)
+        # print('query_params.all-stock#########',c)
+        # print('query_params.all#########',request.query_params)
+        # # print('query_params.all-stock#########',b.pop(stock))
+        # print('query_params.all#########',request.GET.urlencode())
+        # print('timedelta:',timedelta(days=43))
+        # print('GET.query_params#########',request)
+        # print('GET.query_params#########',request.GET.query_params)
+
         #Pageination
         paginator=PageNumberPagination()
         paginator.page_size=4
