@@ -59,6 +59,9 @@ class Product(models.Model):
     description=models.TextField(blank=True,null=True)
     stock=models.PositiveSmallIntegerField()
     created=models.DateTimeField(auto_now_add=True)
+    class Meta:
+        ordering=('-created',)
+
     def save(self,*args,**kwargs):
         self.slug=slugify(self.name)
         super(Product,self).save(*args,**kwargs)
