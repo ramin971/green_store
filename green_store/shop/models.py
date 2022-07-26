@@ -48,9 +48,10 @@ class Category(models.Model):
         return ' -> '.join(full_path[::-1])
 
 
+
 class Product(models.Model):
     name=models.CharField(max_length=100,unique=True)
-    image=models.ImageField(upload_to='images')
+    # image=models.ImageField(upload_to='images',max_length=512000)
     attribute=models.ManyToManyField(Attribute,blank=True,related_name='products')
     price=models.PositiveIntegerField()
     discount=models.PositiveSmallIntegerField(null=True,blank=True,validators=[MinValueValidator(1),MaxValueValidator(99)])
@@ -59,6 +60,7 @@ class Product(models.Model):
     description=models.TextField(blank=True,null=True)
     stock=models.PositiveSmallIntegerField()
     created=models.DateTimeField(auto_now_add=True)
+    updated=models.DateTimeField(auto_now=True)
     class Meta:
         ordering=('-created',)
 
@@ -72,6 +74,48 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+class ProductImage(models.Model):
+    images=models.ImageField(upload_to='images/%Y/%m/%d/',max_length=512000)
+    product=models.ForeignKey(Product,on_delete=models.CASCADE,null=True,related_name='images')
+    def __str__(self):
+        return str(self.product)
+class Variation(models.Model):
+    product=models.ForeignKey(Product,on_delete=models.CASCADE,related_name='variations')
+    privileged_attribute=models.ManyToManyField(Attribute)
+    price=models.PositiveIntegerField()
+    stock=models.PositiveSmallIntegerField()
+    created=models.DateTimeField(auto_now_add=True)
+    def __str__(self):
+        return str(self.product)
+
+    def get_privileged_att(self):
+        return ',\n'.join([str(p) for p in self.privileged_attribute.all()])
+# class OrderItem(models.Model):
+#     product=models.ForeignKey(Product,on_delete=models.CASCADE)
+#     quantity=models.PositiveSmallIntegerField(default=1)
+
+
+class Coupon(models.Model):
+    code = models.CharField(max_length=15)
+    amount = models.PositiveSmallIntegerField()
+
+    def __str__(self):
+        return self.code
+
+
+# class Oreder(models.Model):
+#     user=models.OneToOneField(User,on_delete=models.CASCADE,related_name='order')
+#     coupon=models.ForeignKey(Coupon,on_delete=models.SET_NULL,null=True,blank=True)
+
+class Basket(models.Model):
+    user=models.ForeignKey(User,on_delete=models.CASCADE,related_name='basket')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveSmallIntegerField(default=1)
+    coupon=models.ForeignKey(Coupon,on_delete=models.SET_NULL,null=True,blank=True)
+    class Meta:
+        constraints=[
+            models.UniqueConstraint(fields=['user','coupon'],name='uniq_coupon')
+        ]
 
 class Comment(models.Model):
     user=models.ForeignKey(User,on_delete=models.CASCADE,related_name='comments')
@@ -91,4 +135,3 @@ class Rating(models.Model):
     #         models.UniqueConstraint(fields=['user','product'],name='uniq_rating')
     #     ]
 
-# class cart/basket
