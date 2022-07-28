@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product,Profile,Comment,Category,Attribute,Rating
+from .models import Product,Profile,Comment,Category,Attribute,Rating,Variation,Basket,ProductImage,Coupon
 from django.contrib.auth.models import User
 from django.db.models import Avg
 from django.contrib.auth.password_validation import validate_password
@@ -89,9 +89,17 @@ class RatingSerializers(serializers.ModelSerializer):
 class ProductSerializers(serializers.ModelSerializer):
     rate=serializers.SerializerMethodField()
     new_price=serializers.SerializerMethodField()
+    images=serializers.SerializerMethodField()
     class Meta:
         model=Product
-        fields=['id','name','image','price','description','stock','created','rate','discount','new_price']
+        fields=['id','name','images','price','description','stock',
+                'created','rate','discount','new_price']
+
+
+
+    def get_images(self,obj):
+        image=obj.images.values().first()
+        return image
 
     def get_rate(self,obj):
         this_product = obj.rates.aggregate(avg=Avg('rate'))
@@ -104,14 +112,30 @@ class ProductSerializers(serializers.ModelSerializer):
             new_price = old_price - (discount * old_price // 100)
             return new_price
 
+class VariationsSerializers(serializers.ModelSerializer):
+    privileged_attribute=AttributeSerializers(many=True,read_only=True)
+
+    class Meta:
+        model=Variation
+        fields=['id','product','price','stock','created','privileged_attribute']
+
+
 class ProductDetailSerializers(serializers.ModelSerializer):
     rate=serializers.SerializerMethodField()
     comments=serializers.SerializerMethodField()
+    images=serializers.SerializerMethodField()
     new_price=serializers.SerializerMethodField()
+    variations=VariationsSerializers(many=True,read_only=True)
     attribute=AttributeSerializers(many=True,read_only=True)
+
     class Meta:
         model=Product
-        fields=['id','name','image','price','discount','new_price','rate','stock','created','description','attribute','comments']
+        fields=['id','name','images','price','discount','new_price','rate','stock',
+                'created','description','attribute','comments','variations']
+
+    def get_images(self,obj):
+        image=obj.images.values()
+        return image
 
     def get_rate(self,obj):
         avg_rate=obj.rates.aggregate(avg=Avg('rate'))

@@ -81,7 +81,7 @@ class ProductImage(models.Model):
         return str(self.product)
 class Variation(models.Model):
     product=models.ForeignKey(Product,on_delete=models.CASCADE,related_name='variations')
-    privileged_attribute=models.ManyToManyField(Attribute)
+    privileged_attribute=models.ManyToManyField(Attribute,related_name='privileged_att')
     price=models.PositiveIntegerField()
     stock=models.PositiveSmallIntegerField()
     created=models.DateTimeField(auto_now_add=True)
