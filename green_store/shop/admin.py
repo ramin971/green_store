@@ -21,14 +21,18 @@ def new_price(obj):
 
 class ProductImageInline(admin.StackedInline):
     model = ProductImage
-    # extra = 2
+    extra = 1
+
+class VariationInline(admin.StackedInline):
+    model = Variation
+    extra = 1
 
 class ProductAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug':('name',)}
     list_display = ['name','category',new_price,avg_rate,'stock','get_attribute','discount','price','created']
     list_filter = ['category','created','price']
     search_fields = ['name','attribute__value']
-    inlines = [ProductImageInline]
+    inlines = [ProductImageInline,VariationInline]
 class CategoryAdmin(admin.ModelAdmin):
     prepopulated_fields = {'slug':('name',)}
     # list_display = ['name','slug','parent']
@@ -43,6 +47,7 @@ class VariationAdmin(admin.ModelAdmin):
     list_display = ['product','get_privileged_att','price','stock','created']
     search_fields = ['product__name','privileged_attribute__value']
     list_filter = ['product__category','created','price']
+
 
 class BasketAdmin(admin.ModelAdmin):
     list_display = ['user','product','quantity','coupon']

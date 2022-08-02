@@ -7,7 +7,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticatedOrReadOnly,AllowAny
 from .serializers import UserSerializers,ProductSerializers,CategorySerializers,\
     ProfileSerializers,AttributeSerializers,CommentSerializers,RatingSerializers,\
-    ProductDetailSerializers,ChangePasswordSerializers
+    ProductDetailSerializers,ChangePasswordSerializers,ProductImageSerializers
 from .models import Product,Profile,Comment,Category,Attribute,Rating,Variation,ProductImage,Basket,Coupon
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -15,6 +15,7 @@ from datetime import timedelta
 from django.conf import settings
 import json
 from django.db.models import Avg
+
 
 # Create your views here.
 
@@ -309,6 +310,34 @@ def add_product(request):
                 for i in temp_attribute:
                     # print('attribute:############', i)
                     product.attribute.add(i)
+
+                #resolve1
+                all_image=request.data.getlist('images')
+                # all_image=request.FILES.lists()
+                MAX_FILE_SIZE = 512000
+                for image in all_image:
+                    print('image:',image)
+                    if image.size > MAX_FILE_SIZE:
+                            print('$$$$$$image size: ', image.size)
+                            # raise ValidationError("image size too big.The image size must be less than 500kb ")
+                            res={
+                                'error':f'size of({image})image is too big.The image size must be less than 500kb '
+                            }
+                            return Response(res,status=status.HTTP_406_NOT_ACCEPTABLE)
+                    ProductImage.objects.create(product=product,images=image)
+
+
+                if 'var_id' in request.data:
+                    var_id = request.data['var_id']
+                    temp_variation=Variation.objects.filter(id__in=var_id)
+                    print('var_id: ',var_id)
+                    print('temp_var***** : ',temp_variation)
+                    for i in var_id:
+                        product.variations.add(i)
+                        # product.variations.add(temp_variation)
+                else:
+                    # temp_variation =
+                    pass
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         res = {

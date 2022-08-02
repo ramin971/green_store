@@ -86,6 +86,12 @@ class RatingSerializers(serializers.ModelSerializer):
         # fields='__all__'   -->  product , user ro mikhad ba inke to view joda dadim pass nemidim inja behesh
         fields=['id','rate']
 
+
+class ProductImageSerializers(serializers.ModelSerializer):
+    class Meta:
+        model=ProductImage
+        fields=['id','product_id','images']
+
 class ProductSerializers(serializers.ModelSerializer):
     rate=serializers.SerializerMethodField()
     new_price=serializers.SerializerMethodField()
@@ -94,11 +100,23 @@ class ProductSerializers(serializers.ModelSerializer):
         model=Product
         fields=['id','name','images','price','description','stock',
                 'created','rate','discount','new_price']
-
+    #
+    # def create(self, validated_data):
+    #     images_data = self.context.get('view').request.FILES
+    #     name=validated_data.get('name')
+    #     price=validated_data.get('price')
+    #     description=validated_data.get('description')
+    #     stock=validated_data.get('stock')
+    #     discount=validated_data.get('discount')
+    #     product = Product.objects.create(name=name,price=price,description=description,stock=stock,discount=discount,)
+    #     for image_data in images_data.values():
+    #         ProductImage.objects.create(product=product, image=image_data)
+    #     return product
 
 
     def get_images(self,obj):
-        image=obj.images.values().first()
+        image=obj.images.values()
+        # image=obj.images.values().first()
         return image
 
     def get_rate(self,obj):
@@ -117,7 +135,7 @@ class VariationsSerializers(serializers.ModelSerializer):
 
     class Meta:
         model=Variation
-        fields=['id','product','price','stock','created','privileged_attribute']
+        fields=['id','product_id','price','stock','created','privileged_attribute']
 
 
 class ProductDetailSerializers(serializers.ModelSerializer):

@@ -21,7 +21,7 @@ class Attribute(models.Model):
     name=models.CharField(max_length=50)
     value=models.CharField(max_length=50)
     def __str__(self):
-        return '{} -> {}'.format(self.name,self.value)
+        return '{} ->\n{}\n'.format(self.name,self.value)
 
 class Category(models.Model):
     name=models.CharField(max_length=50,unique=True)
