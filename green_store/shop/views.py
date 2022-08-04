@@ -36,6 +36,62 @@ def token_expire_handler(token):
 
     return left_time
 
+def search_filter(products,qp):
+    discount = qp.get('discount')
+    stock = qp.get('stock')
+    max_price = qp.get('maxprice')
+    min_price = qp.get('minprice')
+    ordering = qp.get('sort')
+
+    if ordering:
+        if ordering == 'lowprice':
+            products = products.order_by('price')
+        if ordering == 'highprice':
+            products = products.order_by('-price')
+        if ordering == 'rate':
+            products = products.annotate(avg=Avg('rates__rate')).order_by('-avg')
+        # if ordering==''
+        qp.pop('sort')
+
+    if (max_price and min_price):
+        products = products.filter(price__range=(min_price, max_price))
+        print('products after price filter: ', products)
+        qp.pop('maxprice')
+        qp.pop('minprice')
+    print('qp after maxmin=', qp)
+
+    if discount:
+        if discount == '1':
+            products = products.filter(discount__isnull=False)
+            print('products after discount filter: ', products)
+        qp.pop('discount')
+    print('qp after discount=', qp)
+
+    if stock:
+        if stock == '1':
+            products = products.filter(stock__gt=0)
+            print('products after stock filter: ', products)
+        qp.pop('stock')
+    print('qp after stock=', qp)
+    print('qp key=', qp.keys())
+    print('qp value=', qp.values())
+    names = qp.keys()
+    values = []
+
+    for item in qp:
+        for value in qp.getlist(item):
+            print('value', value)
+            values.append(value)
+
+    temp_att = Attribute.objects.filter(name__in=names, value__in=values)
+    print(temp_att)
+
+    if temp_att.exists():
+        print('yes temp exist')
+        products = products.filter(attribute__in=temp_att).distinct()
+        print('products after att filter: ', products)
+    return products
+
 @api_view(['POST'])
 @permission_classes((AllowAny,))
 def register(request):
@@ -289,8 +345,22 @@ def add_product(request):
             token_expire_handler(token=request.auth)
 
             temp_category=Category.objects.get(slug=request.data['category_slug'])
+            # Add selected Attribute to Product     ----------------------
             att=request.data['attribute']
+            print('@@@att: ',att)
+
             json_att=json.loads(att)
+
+            print('@@@json_att: ',json_att)
+            for i in json_att:
+                print('@@@json_att.items: ',i.items())
+                print('@@@json_att.keys: ',i.keys())
+                print('@@@json_att.values: ',i.values())
+            # print('@@@json_att.items: ',json_att.items())
+            list_att=request.data.getlist('attribute')
+            print('@@@list_json_att: ',list_att)
+            # print('@@@list_json_att.items: ',list_att.items())
+
             names=[]
             values=[]
             # get the desired attributes
@@ -311,7 +381,7 @@ def add_product(request):
                     # print('attribute:############', i)
                     product.attribute.add(i)
 
-                #resolve1
+                # Add Images to Product        -------------------------------
                 all_image=request.data.getlist('images')
                 # all_image=request.FILES.lists()
                 MAX_FILE_SIZE = 512000
@@ -326,7 +396,7 @@ def add_product(request):
                             return Response(res,status=status.HTTP_406_NOT_ACCEPTABLE)
                     ProductImage.objects.create(product=product,images=image)
 
-
+                # Add Variations to Product        -----------------------------
                 if 'var_id' in request.data:
                     var_id = request.data['var_id']
                     temp_variation=Variation.objects.filter(id__in=var_id)
@@ -358,61 +428,65 @@ def products_by_category(request,category_slug):
             }
             return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
-        # Search-Filter & Ordering
+        # Search-Filter & Ordering     -------------------------
         qp=request.query_params.copy()
-        discount=qp.get('discount')
-        stock=qp.get('stock')
-        max_price=qp.get('maxprice')
-        min_price=qp.get('minprice')
-        ordering=qp.get('sort')
-
-        if ordering:
-            if ordering=='lowprice':
-                products=products.order_by('price')
-            if ordering=='highprice':
-                products=products.order_by('-price')
-            if ordering=='rate':
-                products=products.annotate(avg=Avg('rates__rate')).order_by('-avg')
-            # if ordering==''
-            qp.pop('sort')
-
-        if (max_price and min_price):
-            products=products.filter(price__range=(min_price,max_price))
-            print('products after price filter: ',products)
-            qp.pop('maxprice')
-            qp.pop('minprice')
-        print('qp after maxmin=',qp)
-
-        if discount:
-            if discount == '1':
-                products=products.filter(discount__isnull=False)
-                print('products after discount filter: ', products)
-            qp.pop('discount')
-        print('qp after discount=',qp)
-
-        if stock:
-            if stock == '1':
-                products=products.filter(stock__gt=0)
-                print('products after stock filter: ', products)
-            qp.pop('stock')
-        print('qp after stock=',qp)
-        print('qp key=',qp.keys())
-        print('qp value=',qp.values())
-        names=qp.keys()
-        values=[]
-
-        for item in qp:
-            for value in qp.getlist(item):
-                print('value',value)
-                values.append(value)
-
-        temp_att=Attribute.objects.filter(name__in=names,value__in=values)
-        print(temp_att)
-
-        if temp_att.exists():
-            print('yes temp exist')
-            products=products.filter(attribute__in=temp_att).distinct()
-            print('products after att filter: ',products)
+        print('$$$qp: ',qp)
+        if qp is not None:
+            products=search_filter(products=products,qp=qp)
+        # qp=request.query_params.copy()
+        # discount=qp.get('discount')
+        # stock=qp.get('stock')
+        # max_price=qp.get('maxprice')
+        # min_price=qp.get('minprice')
+        # ordering=qp.get('sort')
+        #
+        # if ordering:
+        #     if ordering=='lowprice':
+        #         products=products.order_by('price')
+        #     if ordering=='highprice':
+        #         products=products.order_by('-price')
+        #     if ordering=='rate':
+        #         products=products.annotate(avg=Avg('rates__rate')).order_by('-avg')
+        #     # if ordering==''
+        #     qp.pop('sort')
+        #
+        # if (max_price and min_price):
+        #     products=products.filter(price__range=(min_price,max_price))
+        #     print('products after price filter: ',products)
+        #     qp.pop('maxprice')
+        #     qp.pop('minprice')
+        # print('qp after maxmin=',qp)
+        #
+        # if discount:
+        #     if discount == '1':
+        #         products=products.filter(discount__isnull=False)
+        #         print('products after discount filter: ', products)
+        #     qp.pop('discount')
+        # print('qp after discount=',qp)
+        #
+        # if stock:
+        #     if stock == '1':
+        #         products=products.filter(stock__gt=0)
+        #         print('products after stock filter: ', products)
+        #     qp.pop('stock')
+        # print('qp after stock=',qp)
+        # print('qp key=',qp.keys())
+        # print('qp value=',qp.values())
+        # names=qp.keys()
+        # values=[]
+        #
+        # for item in qp:
+        #     for value in qp.getlist(item):
+        #         print('value',value)
+        #         values.append(value)
+        #
+        # temp_att=Attribute.objects.filter(name__in=names,value__in=values)
+        # print(temp_att)
+        #
+        # if temp_att.exists():
+        #     print('yes temp exist')
+        #     products=products.filter(attribute__in=temp_att).distinct()
+        #     print('products after att filter: ',products)
         #Pageination
         paginator=PageNumberPagination()
         paginator.page_size=4
