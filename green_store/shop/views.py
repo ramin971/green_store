@@ -345,7 +345,7 @@ def add_product(request):
             token_expire_handler(token=request.auth)
 
             temp_category=Category.objects.get(slug=request.data['category_slug'])
-            # Add selected Attribute to Product     ----------------------
+            # Add(get | create) selected Attribute to Product     ----------------------
             att=request.data['attribute']
             print('@@@att: ',att)
 
@@ -356,10 +356,14 @@ def add_product(request):
                 print('@@@json_att.items: ',i.items())
                 print('@@@json_att.keys: ',i.keys())
                 print('@@@json_att.values: ',i.values())
-            # print('@@@json_att.items: ',json_att.items())
+                print('@@@i: ',i)
+                name=list(i.values())[0]
+                value=list(i.values())[1]
+                print(f'name:{name},value:{value}')
+                Attribute.objects.get_or_create(name=name,value=value)
             list_att=request.data.getlist('attribute')
             print('@@@list_json_att: ',list_att)
-            # print('@@@list_json_att.items: ',list_att.items())
+            # print('@@@list_json_att.items: ',list_att.items()) #error
 
             names=[]
             values=[]
