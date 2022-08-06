@@ -74,6 +74,7 @@ class AttributeSerializers(serializers.ModelSerializer):
         model=Attribute
         fields=['id','name','value']
 
+
 class CommentSerializers(serializers.ModelSerializer):
     class Meta:
         model=Comment

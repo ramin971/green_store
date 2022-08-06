@@ -7,7 +7,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticatedOrReadOnly,AllowAny
 from .serializers import UserSerializers,ProductSerializers,CategorySerializers,\
     ProfileSerializers,AttributeSerializers,CommentSerializers,RatingSerializers,\
-    ProductDetailSerializers,ChangePasswordSerializers,ProductImageSerializers
+    ProductDetailSerializers,ChangePasswordSerializers,ProductImageSerializers,VariationsSerializers
 from .models import Product,Profile,Comment,Category,Attribute,Rating,Variation,ProductImage,Basket,Coupon
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -352,6 +352,7 @@ def add_product(request):
             json_att=json.loads(att)
 
             print('@@@json_att: ',json_att)
+            temp_attribute=[]
             for i in json_att:
                 print('@@@json_att.items: ',i.items())
                 print('@@@json_att.keys: ',i.keys())
@@ -360,23 +361,31 @@ def add_product(request):
                 name=list(i.values())[0]
                 value=list(i.values())[1]
                 print(f'name:{name},value:{value}')
-                Attribute.objects.get_or_create(name=name,value=value)
-            list_att=request.data.getlist('attribute')
-            print('@@@list_json_att: ',list_att)
+
+                # att_serializer=AttributeSerializers(data=dict(i.values()))
+                # if att_serializer.is_valid(raise_exception=True):
+                #     att_serializer.save()
+
+                attr,created=Attribute.objects.get_or_create(name=name,value=value)
+                temp_attribute.append(attr)
+
+            # list_att=request.data.getlist('attribute')
+            # print('@@@list_json_att: ',list_att)
             # print('@@@list_json_att.items: ',list_att.items()) #error
 
-            names=[]
-            values=[]
-            # get the desired attributes
-            for i in json_att:
-                if not i.get('name') in names:
-                    # print(i['name'])
-                    names.append(i['name'])
-                if not i['value'] in values:
-                    # print(i['value'])
-                    values.append(i['value'])
-
-            temp_attribute=Attribute.objects.filter(name__in=names,value__in=values)
+            # names=[]
+            # values=[]
+            # # get the desired attributes
+            # for i in json_att:
+            #     if not i.get('name') in names:
+            #         # print(i['name'])
+            #         names.append(i['name'])
+            #     if not i['value'] in values:
+            #         # print(i['value'])
+            #         values.append(i['value'])
+            #
+            # temp_attribute=Attribute.objects.filter(name__in=names,value__in=values)
+            print('****temp_att***',temp_attribute)
             product=Product(category=temp_category)
             serializer = ProductSerializers(product,data=request.data)
             if serializer.is_valid():
@@ -389,15 +398,18 @@ def add_product(request):
                 all_image=request.data.getlist('images')
                 # all_image=request.FILES.lists()
                 MAX_FILE_SIZE = 512000
+                images_406=[]
                 for image in all_image:
                     print('image:',image)
                     if image.size > MAX_FILE_SIZE:
                             print('$$$$$$image size: ', image.size)
+                            images_406.append(image)
+                            continue
                             # raise ValidationError("image size too big.The image size must be less than 500kb ")
-                            res={
-                                'error':f'size of({image})image is too big.The image size must be less than 500kb '
-                            }
-                            return Response(res,status=status.HTTP_406_NOT_ACCEPTABLE)
+                            # res={
+                            #     'error':f'size of({image})image is too big.The image size must be less than 500kb '
+                            # }
+                            # return Response(res,status=status.HTTP_406_NOT_ACCEPTABLE)
                     ProductImage.objects.create(product=product,images=image)
 
                 # Add Variations to Product        -----------------------------
@@ -409,10 +421,43 @@ def add_product(request):
                     for i in var_id:
                         product.variations.add(i)
                         # product.variations.add(temp_variation)
-                else:
-                    # temp_variation =
-                    pass
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
+                if 'variations' in request.data:
+                    variations=request.data.get('variations')
+                    json_variation=json.loads(variations)
+                    print('%%%variations',variations)
+                    for variation in json_variation:
+                        print('%%%variation',variation)
+
+                        att=variation['privileged_attribute']
+                        print('%%%att: ', att)
+
+                        # json_att = json.loads(att)
+
+                        # print('%%%json_att: ', json_att)
+                        temp_attribute = []
+                        for i in att:
+                            print('%%%json_att.items: ', i.items())
+                            # print('@@@json_att.keys: ', i.keys())
+                            print('%%%json_att.values: ', i.values())
+                            print('%%%i: ', i)
+                            name = list(i.values())[0]
+                            value = list(i.values())[1]
+                            print(f'name:{name},value:{value}')
+
+                            attr, created = Attribute.objects.get_or_create(name=name, value=value)
+                            temp_attribute.append(attr)
+
+                        temp_variation=Variation(product=product)
+                        variation_serializer=VariationsSerializers(temp_variation,data=variation)
+                        if variation_serializer.is_valid(raise_exception=True):
+                            variation_serializer.save()
+                            for i in temp_attribute:
+                                temp_variation.privileged_attribute.add(i)
+
+                res=serializer.data
+                if images_406 is not None:
+                    res['warning']= f'images({images_406})not acceptable,because images size must be less than 500kb'
+                return Response(res, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         res = {
                 'error': 'Permission denied. You are not SuperUser'

@@ -20,12 +20,15 @@ class Profile(models.Model):
 class Attribute(models.Model):
     name=models.CharField(max_length=50)
     value=models.CharField(max_length=50)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['name','value'],name='unique_attribute')
+        ]
+
     def __str__(self):
         return '{} ->\n{}\n'.format(self.name,self.value)
-    # class Meta:
-    #     constraints = [
-    #         models.UniqueConstraint(fields=['name','value'],name='unique_attribute')
-    #     ]
+
 
 class Category(models.Model):
     name=models.CharField(max_length=50,unique=True)
