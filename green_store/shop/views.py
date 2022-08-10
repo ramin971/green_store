@@ -336,7 +336,7 @@ def rating(request):
             return Response(serializer.data,status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['POST'])
+@api_view(['POST','PUT','DELETE'])
 def add_product(request):
     if request.method=='POST':
         user=request.user
@@ -362,7 +362,7 @@ def add_product(request):
                 value=list(i.values())[1]
                 print(f'name:{name},value:{value}')
 
-                # att_serializer=AttributeSerializers(data=dict(i.values()))
+                # att_serializer=AttributeSerializers(data=dict(i.values()),many=True)
                 # if att_serializer.is_valid(raise_exception=True):
                 #     att_serializer.save()
 
@@ -455,7 +455,7 @@ def add_product(request):
                                 temp_variation.privileged_attribute.add(i)
 
                 res=serializer.data
-                if images_406 is not None:
+                if images_406:
                     res['warning']= f'images({images_406})not acceptable,because images size must be less than 500kb'
                 return Response(res, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -463,6 +463,132 @@ def add_product(request):
                 'error': 'Permission denied. You are not SuperUser'
             }
         return Response(res, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method=='PUT':
+        user=request.user
+        if user.is_superuser:
+            # Check token expire
+            token_expire_handler(token=request.auth)
+            try:
+                product_slug=request.data.get('product_slug')
+                product=Product.objects.get(slug=product_slug)
+            except Product.DoesNotExist:
+                result = {
+                    'error': 'product with this slug does not exist'
+                }
+                return Response(result, status=status.HTTP_204_NO_CONTENT)
+            images_406 = []
+            if 'images' in request.data:
+                product.images.clear()
+                all_image = request.data.getlist('images')
+                MAX_FILE_SIZE = 512000
+                for image in all_image:
+                    if image.size > MAX_FILE_SIZE:
+                        images_406.append(image)
+                        continue
+                    ProductImage.objects.create(product=product,images=image)
+
+            if 'variations' in request.data:
+                # product.variations.clear()
+                variations = request.data.get('variations')
+                json_variation = json.loads(variations)
+                # remove old variation
+                Variation.objects.filter(product=product).delete()
+                print('%%%variations', variations)
+                for variation in json_variation:
+                    print('%%%variation', variation)
+
+                    att = variation['privileged_attribute']
+                    print('%%%att: ', att)
+
+                    # json_att = json.loads(att)
+
+                    # print('%%%json_att: ', json_att)
+                    temp_attribute = []
+                    for i in att:
+                        print('%%%json_att.items: ', i.items())
+                        # print('@@@json_att.keys: ', i.keys())
+                        print('%%%json_att.values: ', i.values())
+                        print('%%%i: ', i)
+                        name = list(i.values())[0]
+                        value = list(i.values())[1]
+                        print(f'name:{name},value:{value}')
+
+                        attr, created = Attribute.objects.get_or_create(name=name, value=value)
+                        temp_attribute.append(attr)
+
+                    temp_variation = Variation(product=product)
+
+                    variation_serializer = VariationsSerializers(temp_variation, data=variation)
+                    if variation_serializer.is_valid(raise_exception=True):
+                        variation_serializer.save()
+                        for i in temp_attribute:
+                            temp_variation.privileged_attribute.add(i)
+
+            if 'attribute' in request.data:
+                att=request.data['attribute']
+                json_att=json.loads(att)
+                # names = []
+                # values = []
+                temp_attribute = []
+                for i in json_att:
+                    name = list(i.values())[0]
+                    value = list(i.values())[1]
+                    attr, created = Attribute.objects.get_or_create(name=name, value=value)
+                    temp_attribute.append(attr)
+                    # if not i.get('name') in names:
+                    #     # print(i['name'])
+                    #     names.append(i['name'])
+                    # if not i['value'] in values:
+                    #     # print(i['value'])
+                    #     values.append(i['value'])
+
+                # temp_attribute = Attribute.objects.filter(name__in=names, value__in=values)
+                # remove old attribute
+                product.attribute.clear()
+                # add new attribute
+                for att in temp_attribute:
+                    # print('attribute:############', att)
+                    product.attribute.add(att)
+
+            serializer=ProductDetailSerializers(product,data=request.data,partial=True,context={'request':request})
+            if serializer.is_valid():
+                serializer.save()
+                res=serializer.data
+                res['message']='update successfully'
+                if images_406:
+                    res['warning']= f'images({images_406})not acceptable,because images size must be less than 500kb'
+                return Response(res,status=status.HTTP_205_RESET_CONTENT)
+            return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+        res = {
+            'error': 'Permission denied. You are not SuperUser'
+        }
+        return Response(res, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method=='DELETE':
+        user = request.user
+        if user.is_superuser:
+            # Check token expire
+            token_expire_handler(token=request.auth)
+            try:
+                product_slug=request.data.get('product_slug')
+                product=Product.objects.get(slug=product_slug)
+            except Product.DoesNotExist:
+                result = {
+                    'error': 'product with this slug does not exist'
+                }
+                return Response(result, status=status.HTTP_204_NO_CONTENT)
+
+            product.delete()
+            result = {
+                'massage': 'product deleted successfully'
+            }
+            return Response(result, status=status.HTTP_204_NO_CONTENT)
+        else:
+            res={
+                'error': 'Permission denied. You are not SuperUser'
+            }
+        return Response(res,status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 @permission_classes((AllowAny,))
@@ -548,7 +674,7 @@ def products_by_category(request,category_slug):
         return paginator.get_paginated_response(serializer.data)
 
 
-@api_view(['GET','PUT','DELETE'])
+@api_view(['GET'])
 @permission_classes((IsAuthenticatedOrReadOnly,))
 def product_details(request,product_slug):
     try:
@@ -566,60 +692,4 @@ def product_details(request,product_slug):
         paginator.paginate_queryset(product.comments.filter(show=True), request)
         serializer = ProductDetailSerializers(product,context={'request':request})
         return paginator.get_paginated_response(serializer.data)
-    elif request.method=='PUT':
-        user=request.user
-        if user.is_superuser:
-            # Check token expire
-            token_expire_handler(token=request.auth)
-            # print('########req.data',request.data)
-            if 'attribute' in request.data:
-                attr=request.data['attribute']
-                json_attr=json.loads(attr)
-                names = []
-                values = []
-                for i in json_attr:
-                    if not i.get('name') in names:
-                        # print(i['name'])
-                        names.append(i['name'])
-                    if not i['value'] in values:
-                        # print(i['value'])
-                        values.append(i['value'])
 
-
-                temp_attribute = Attribute.objects.filter(name__in=names, value__in=values)
-                # remove old attribute
-                product.attribute.clear()
-                # add new attribute
-                for att in temp_attribute:
-                    # print('attribute:############', att)
-                    product.attribute.add(att)
-
-            # else:
-            #     print('@@@@@@@@@_no1_@@@@@@@@@')
-
-            serializer=ProductDetailSerializers(product,data=request.data,partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                res=serializer.data
-                res['message']='update successfully'
-                return Response(res,status=status.HTTP_205_RESET_CONTENT)
-            return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
-        res = {
-            'error': 'Permission denied. You are not SuperUser'
-        }
-        return Response(res, status=status.HTTP_400_BAD_REQUEST)
-
-    elif request.method=='DELETE':
-        user = request.user
-        if user.is_superuser:
-            # Check token expire
-            token_expire_handler(token=request.auth)
-            product.delete()
-            result = {
-                'massage': 'post deleted successfully'
-            }
-            return Response(result, status=status.HTTP_204_NO_CONTENT)
-        res={
-            'error': 'Permission denied. You are not SuperUser'
-        }
-        return Response(res,status=status.HTTP_400_BAD_REQUEST)

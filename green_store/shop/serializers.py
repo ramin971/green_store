@@ -139,6 +139,7 @@ class VariationsSerializers(serializers.ModelSerializer):
         fields=['id','product_id','price','stock','created','privileged_attribute']
 
 
+
 class ProductDetailSerializers(serializers.ModelSerializer):
     rate=serializers.SerializerMethodField()
     comments=serializers.SerializerMethodField()
