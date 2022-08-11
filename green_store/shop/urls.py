@@ -18,7 +18,7 @@ urlpatterns = [
     path('attribute/',views.attribute,name='attribute'),
     path('comment/',views.comment,name='comment'),
     path('rating/',views.rating,name='rating'),
-    path('add_product/',views.add_product,name='add_product'),
+    path('add_edit_delete_product/',views.add_edit_delete_product,name='add_edit_delete_product'),
     path('products/<slug:product_slug>', views.product_details, name='product_detail'),
     path('<slug:category_slug>',views.products_by_category,name='products_by_category'),
 

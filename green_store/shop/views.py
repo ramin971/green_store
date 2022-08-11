@@ -14,7 +14,8 @@ from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
 import json
-from django.db.models import Avg
+from django.db.models import Avg,Max
+from itertools import chain
 
 
 # Create your views here.
@@ -50,7 +51,8 @@ def search_filter(products,qp):
             products = products.order_by('-price')
         if ordering == 'rate':
             products = products.annotate(avg=Avg('rates__rate')).order_by('-avg')
-        # if ordering==''
+        if ordering=='new':
+            products = products.order_by('-created')
         qp.pop('sort')
 
     if (max_price and min_price):
@@ -89,6 +91,10 @@ def search_filter(products,qp):
     if temp_att.exists():
         print('yes temp exist')
         products = products.filter(attribute__in=temp_att).distinct()
+        # this is new result
+        # products1 = products.filter(attribute__in=temp_att).distinct()
+        # products2=products.filter(variations__attribute__in=temp_att).distinct()
+        # products=onion(products1,products2)
         print('products after att filter: ', products)
     return products
 
@@ -337,7 +343,7 @@ def rating(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST','PUT','DELETE'])
-def add_product(request):
+def add_edit_delete_product(request):
     if request.method=='POST':
         user=request.user
         if user.is_superuser:
@@ -662,6 +668,59 @@ def products_by_category(request,category_slug):
         #     print('yes temp exist')
         #     products=products.filter(attribute__in=temp_att).distinct()
         #     print('products after att filter: ',products)
+        max_price=products.aggregate(max=Max('price'))
+        att2=products.values_list('variations__privileged_attribute__name',flat=True)
+        att1=products.values_list('attribute__name',flat=True)
+        chain_attribute=list(chain(att1,att2))
+        # union_attribute=list(att1.union(att2,all=True)) # error database
+        att_distinct=[]
+        for i in chain_attribute:
+            if i not in att_distinct:
+                att_distinct.append(i)
+
+        att_value2=products.values_list('variations__privileged_attribute__value',flat=True)
+        att_value1=products.values_list('attribute__value',flat=True)
+        chain_att_value=list(chain(att_value1,att_value2))
+        att_value_distinct = []
+        for i in chain_att_value:
+            if i not in att_value_distinct:
+                att_value_distinct.append(i)
+
+        # att_val=products.values_list('attribute__value',flat=True)
+        # att_val_d=products.values_list('attribute__value',flat=True).distinct()
+        print('attribute: ',att1)
+        print('attribute2: ',att2)
+        print('chain(att2,att1): ',chain_attribute)
+        # print('attribute_d: ',att_d)
+        print('attribute_distinct: ',att_distinct)
+        print('attribute_val1: ',att_value1)
+        print('attribute_val2: ',att_value2)
+        print('chain(att_val1,att_val2): ',chain_att_value)
+        print('attribute_val_d: ',att_value_distinct)
+        print('products:',products)
+        filters = {
+            'ordering': {
+                'type': 'InlineRadio',
+                'options': ['new', 'rate', 'lowprice', 'highprice']
+            },
+            'price': {
+                'type': 'Range Slider',
+                'options': {'minprice': 0, 'maxprice': max_price['max']}
+
+            },
+            'discount': {
+                'type': 'Toggle Switch'
+            },
+            'stock': {
+                'type': 'Toggle Switch'
+            },
+            'attribute':{
+                'type': 'Select Box',
+                'options': [{'names':att_distinct},{'value':att_value_distinct}]
+
+            }
+        }
+
         #Pageination
         paginator=PageNumberPagination()
         paginator.page_size=4
@@ -671,7 +730,19 @@ def products_by_category(request,category_slug):
         # remove Unnecessary data from serializer.data to send client
         for i in serializer.data:
             i.pop('description')
-        return paginator.get_paginated_response(serializer.data)
+        # max_price=products.annotate(max=Max('price'))
+        # print('****$$$$max-price with annotate:',max_price)
+        # print('****$$$$max-price with annotate[]:',max_price['max'])
+        print('****$$$$max-price with aggrigate[]:',max_price['max'])
+        data={}
+        data['products']=serializer.data
+        data['filters']=filters
+        # serializer.data.update({'filters':filters})#error : has no attribute update
+        # return paginator.get_paginated_response(serializer.data)
+        return paginator.get_paginated_response(data)
+        # response=paginator.get_paginated_response(serializer.data)
+        # response['filters']=filters
+        # return response
 
 
 @api_view(['GET'])
