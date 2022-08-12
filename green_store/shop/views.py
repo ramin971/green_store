@@ -16,7 +16,7 @@ from django.conf import settings
 import json
 from django.db.models import Avg,Max
 from itertools import chain
-
+from django.db.models import Q
 
 # Create your views here.
 
@@ -90,12 +90,21 @@ def search_filter(products,qp):
 
     if temp_att.exists():
         print('yes temp exist')
-        products = products.filter(attribute__in=temp_att).distinct()
+        # products = products.filter(attribute__)
         # this is new result
-        # products1 = products.filter(attribute__in=temp_att).distinct()
-        # products2=products.filter(variations__attribute__in=temp_att).distinct()
-        # products=onion(products1,products2)
+        # products2=products.filter(variations__privileged_attribute__in=temp_att).distinct()
+
+        # products= products.filter(Q(attribute__in=temp_att) | Q(variations__privileged_attribute__in=temp_att)).distinct()
+        # products= products.filter(Q(attribute__exact=temp_att) | Q(variations__privileged_attribute__exact=temp_att)).distinct()
+        # products= products.filter(attribute__exact=temp_att , variations__privileged_attribute__exact=temp_att)
+        for i in temp_att:
+            products=products.filter(Q(attribute=i) | Q(variations__privileged_attribute=i)).distinct()
         print('products after att filter: ', products)
+        # print('products2 privileged_att: ', products2)
+        # products.union(products2) # not work ,just return first products
+        # products=chain(products1,products2) # error
+        print('products after union: ', products)
+
     return products
 
 @api_view(['POST'])
@@ -669,14 +678,14 @@ def products_by_category(request,category_slug):
         #     products=products.filter(attribute__in=temp_att).distinct()
         #     print('products after att filter: ',products)
         max_price=products.aggregate(max=Max('price'))
-        att2=products.values_list('variations__privileged_attribute__name',flat=True)
-        att1=products.values_list('attribute__name',flat=True)
-        chain_attribute=list(chain(att1,att2))
+        # att2=products.values_list('variations__privileged_attribute__name',flat=True)
+        # att1=products.values_list('attribute__name',flat=True)
+        # chain_attribute=list(chain(att1,att2))
         # union_attribute=list(att1.union(att2,all=True)) # error database
-        att_distinct=[]
-        for i in chain_attribute:
-            if i not in att_distinct:
-                att_distinct.append(i)
+        # att_distinct=[]
+        # for i in chain_attribute:
+        #     if i not in att_distinct:
+        #         att_distinct.append(i)
 
         att_value2=products.values_list('variations__privileged_attribute__value',flat=True)
         att_value1=products.values_list('attribute__value',flat=True)
@@ -685,22 +694,25 @@ def products_by_category(request,category_slug):
         for i in chain_att_value:
             if i not in att_value_distinct:
                 att_value_distinct.append(i)
-
+        final=Attribute.objects.filter(value__in=att_value_distinct)
+        attributes_serializer=AttributeSerializers(final,many=True)
         # att_val=products.values_list('attribute__value',flat=True)
-        # att_val_d=products.values_list('attribute__value',flat=True).distinct()
-        print('attribute: ',att1)
-        print('attribute2: ',att2)
-        print('chain(att2,att1): ',chain_attribute)
+        # att_val_d=products.values_list('attribute__value',flat=True).distinct() # distinct not work correctly
+        # print('attribute: ',att1)
+        # print('attribute2: ',att2)
+        # print('chain(att2,att1): ',chain_attribute)
         # print('attribute_d: ',att_d)
-        print('attribute_distinct: ',att_distinct)
+        # print('attribute_distinct: ',att_distinct)
         print('attribute_val1: ',att_value1)
         print('attribute_val2: ',att_value2)
         print('chain(att_val1,att_val2): ',chain_att_value)
         print('attribute_val_d: ',att_value_distinct)
+        print('@@@final attribute: ',final)
+        print('@@@final attribute_serialize: ',attributes_serializer.data)
         print('products:',products)
         filters = {
             'ordering': {
-                'type': 'InlineRadio',
+                'type': 'Inline Radio',
                 'options': ['new', 'rate', 'lowprice', 'highprice']
             },
             'price': {
@@ -716,7 +728,7 @@ def products_by_category(request,category_slug):
             },
             'attribute':{
                 'type': 'Select Box',
-                'options': [{'names':att_distinct},{'value':att_value_distinct}]
+                'options': [{'attributes':attributes_serializer.data}]
 
             }
         }
