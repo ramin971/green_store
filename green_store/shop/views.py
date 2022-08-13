@@ -37,12 +37,12 @@ def token_expire_handler(token):
 
     return left_time
 
-def search_filter(products,qp):
-    discount = qp.get('discount')
-    stock = qp.get('stock')
-    max_price = qp.get('maxprice')
-    min_price = qp.get('minprice')
-    ordering = qp.get('sort')
+def search_filter(products,query_param):
+    discount = query_param.get('discount')
+    stock = query_param.get('stock')
+    max_price = query_param.get('maxprice')
+    min_price = query_param.get('minprice')
+    ordering = query_param.get('sort')
 
     if ordering:
         if ordering == 'lowprice':
@@ -53,35 +53,35 @@ def search_filter(products,qp):
             products = products.annotate(avg=Avg('rates__rate')).order_by('-avg')
         if ordering=='new':
             products = products.order_by('-created')
-        qp.pop('sort')
+        query_param.pop('sort')
 
     if (max_price and min_price):
         products = products.filter(price__range=(min_price, max_price))
         print('products after price filter: ', products)
-        qp.pop('maxprice')
-        qp.pop('minprice')
-    print('qp after maxmin=', qp)
+        query_param.pop('maxprice')
+        query_param.pop('minprice')
+    print('query_param after maxmin=', query_param)
 
     if discount:
         if discount == '1':
             products = products.filter(discount__isnull=False)
             print('products after discount filter: ', products)
-        qp.pop('discount')
-    print('qp after discount=', qp)
+        query_param.pop('discount')
+    print('query_param after discount=', query_param)
 
     if stock:
         if stock == '1':
             products = products.filter(stock__gt=0)
             print('products after stock filter: ', products)
-        qp.pop('stock')
-    print('qp after stock=', qp)
-    print('qp key=', qp.keys())
-    print('qp value=', qp.values())
-    names = qp.keys()
+        query_param.pop('stock')
+    print('query_param after stock=', query_param)
+    print('query_param key=', query_param.keys())
+    print('query_param value=', query_param.values())
+    names = query_param.keys()
     values = []
 
-    for item in qp:
-        for value in qp.getlist(item):
+    for item in query_param:
+        for value in query_param.getlist(item):
             print('value', value)
             values.append(value)
 
@@ -619,16 +619,16 @@ def products_by_category(request,category_slug):
             return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
         # Search-Filter & Ordering     -------------------------
-        qp=request.query_params.copy()
-        print('$$$qp: ',qp)
-        if qp is not None:
-            products=search_filter(products=products,qp=qp)
-        # qp=request.query_params.copy()
-        # discount=qp.get('discount')
-        # stock=qp.get('stock')
-        # max_price=qp.get('maxprice')
-        # min_price=qp.get('minprice')
-        # ordering=qp.get('sort')
+        query_param=request.query_params.copy()
+        print('$$$query_param: ',query_param)
+        if query_param is not None:
+            products=search_filter(products=products,query_param=query_param)
+        # query_param=request.query_params.copy()
+        # discount=query_param.get('discount')
+        # stock=query_param.get('stock')
+        # max_price=query_param.get('maxprice')
+        # min_price=query_param.get('minprice')
+        # ordering=query_param.get('sort')
         #
         # if ordering:
         #     if ordering=='lowprice':
@@ -638,35 +638,35 @@ def products_by_category(request,category_slug):
         #     if ordering=='rate':
         #         products=products.annotate(avg=Avg('rates__rate')).order_by('-avg')
         #     # if ordering==''
-        #     qp.pop('sort')
+        #     query_param.pop('sort')
         #
         # if (max_price and min_price):
         #     products=products.filter(price__range=(min_price,max_price))
         #     print('products after price filter: ',products)
-        #     qp.pop('maxprice')
-        #     qp.pop('minprice')
-        # print('qp after maxmin=',qp)
+        #     query_param.pop('maxprice')
+        #     query_param.pop('minprice')
+        # print('query_param after maxmin=',query_param)
         #
         # if discount:
         #     if discount == '1':
         #         products=products.filter(discount__isnull=False)
         #         print('products after discount filter: ', products)
-        #     qp.pop('discount')
-        # print('qp after discount=',qp)
+        #     query_param.pop('discount')
+        # print('query_param after discount=',query_param)
         #
         # if stock:
         #     if stock == '1':
         #         products=products.filter(stock__gt=0)
         #         print('products after stock filter: ', products)
-        #     qp.pop('stock')
-        # print('qp after stock=',qp)
-        # print('qp key=',qp.keys())
-        # print('qp value=',qp.values())
-        # names=qp.keys()
+        #     query_param.pop('stock')
+        # print('query_param after stock=',query_param)
+        # print('query_param key=',query_param.keys())
+        # print('query_param value=',query_param.values())
+        # names=query_param.keys()
         # values=[]
         #
-        # for item in qp:
-        #     for value in qp.getlist(item):
+        # for item in query_param:
+        #     for value in query_param.getlist(item):
         #         print('value',value)
         #         values.append(value)
         #
@@ -686,16 +686,57 @@ def products_by_category(request,category_slug):
         # for i in chain_attribute:
         #     if i not in att_distinct:
         #         att_distinct.append(i)
+        print('products:',products)
+        # print('products_att',(i.attribute__value for i in products))
+        for i in products:
+            print('i.att',i.attribute)
+            print('i.att__val',i.get_attribute())
+        print('end')
+        attribute_value=[]
+        for product in products:
+            for att in product.attribute.all():
+                if att not in attribute_value:
+                    print('added to list:',att)
+                    attribute_value.append(att)
+            # for att in product.variations.values_list('privileged_attribute__value',flat=True):
+            #     a=Attribute.objects.get(att)
+            #     if a not in attribute_value:
+            #         attribute_value.append(a)
+            for var in product.variations.all():
+                for att in var.privileged_attribute.all():
+                    if att not in attribute_value:
+                        print('add to list2',att)
+                        attribute_value.append(att)
+            print('****attribute****+',product,'==',attribute_value)
+            # for i in product.variations.values_list('privileged_attribute',flat=True):
+            # for i in product.variations.privileged_attribute.all():
+            #     if i not in attribute_value:
+            #         attribute_value.append(i)
+                #forloop for att req
+            # new=Attribute.objects.filter(products=product)
+            # if new not in attribute_value:
+            #     attribute_value.append(new)
+            # print('****privileged_attribute****+',product,'==',attribute_value)
 
-        att_value2=products.values_list('variations__privileged_attribute__value',flat=True)
-        att_value1=products.values_list('attribute__value',flat=True)
-        chain_att_value=list(chain(att_value1,att_value2))
-        att_value_distinct = []
-        for i in chain_att_value:
-            if i not in att_value_distinct:
-                att_value_distinct.append(i)
-        final=Attribute.objects.filter(value__in=att_value_distinct)
-        attributes_serializer=AttributeSerializers(final,many=True)
+            #     print('!!!!####privileged_att=',att)
+        print('kole value ha',attribute_value)
+        # att_value2=products.values_list('variations__privileged_attribute__value',flat=True)
+        # att_value1=products.values_list('attribute__value',flat=True)
+        # att_value1=products.values_list('attribute',flat=True)
+        for product in products:
+            r=product.attribute.values_list('value',flat=True)
+            print('r&&&&&=',r)
+        # print('products_att_value_list',att_value1)
+        # new=products.values('attribute')
+        # print('products_att****',new)
+        # chain_att_value=list(chain(att_value1,att_value2))
+        # att_value_distinct = []
+        # for i in chain_att_value:
+        #     if i not in att_value_distinct:
+        #         att_value_distinct.append(i)
+        # final=Attribute.objects.filter(value__in=att_value_distinct)
+
+        attributes_serializer=AttributeSerializers(attribute_value,many=True)
         # att_val=products.values_list('attribute__value',flat=True)
         # att_val_d=products.values_list('attribute__value',flat=True).distinct() # distinct not work correctly
         # print('attribute: ',att1)
@@ -703,11 +744,12 @@ def products_by_category(request,category_slug):
         # print('chain(att2,att1): ',chain_attribute)
         # print('attribute_d: ',att_d)
         # print('attribute_distinct: ',att_distinct)
-        print('attribute_val1: ',att_value1)
-        print('attribute_val2: ',att_value2)
-        print('chain(att_val1,att_val2): ',chain_att_value)
-        print('attribute_val_d: ',att_value_distinct)
-        print('@@@final attribute: ',final)
+
+        # print('attribute_val1: ',att_value1)
+        # print('attribute_val2: ',att_value2)
+        # print('chain(att_val1,att_val2): ',chain_att_value)
+        # print('attribute_val_d: ',att_value_distinct)
+        # print('@@@final attribute: ',final)
         print('@@@final attribute_serialize: ',attributes_serializer.data)
         print('products:',products)
         filters = {
@@ -728,7 +770,7 @@ def products_by_category(request,category_slug):
             },
             'attribute':{
                 'type': 'Select Box',
-                'options': [{'attributes':attributes_serializer.data}]
+                'options': {'attributes':attributes_serializer.data}
 
             }
         }
