@@ -109,6 +109,29 @@ def search_filter(products,query_param):
 
 @api_view(['POST'])
 @permission_classes((AllowAny,))
+def search(request):
+    products=Product.objects.all()
+    # it = request.POST.get('search')
+    # print('it search$$$$$$$$$$$$$$$$$$4$$$$$$$$$$$$$$$', it)
+    item=request.data.get('search')
+    print('itemin search$$$$$$$$$$$$$$$$$$4$$$$$$$$$$$$$$$',item)
+    result=products.filter(Q(name__icontains=item)|Q(category__name__icontains=item)|
+                           Q(attribute__value__icontains=item)|Q(category__parent__name__icontains=item)|
+                           Q(variations__privileged_attribute__value__icontains=item)).distinct()
+    # for postgeresql search
+    # result = products.filter(Q(name__search=item) | Q(category__name__search=item) |
+    #                          Q(attribute__value__search=item) | Q(category__parent__name__search=item) |
+    #                          Q(variations__privileged_attribute__value__search=item)).distinct()
+    # Paginator
+    paginator = PageNumberPagination()
+    paginator.page_size = 4
+    result_page = paginator.paginate_queryset(result, request)
+    serializer=ProductSerializers(result_page,many=True)
+    return paginator.get_paginated_response(serializer.data)
+    # return Response({'data':'yes'})
+
+@api_view(['POST'])
+@permission_classes((AllowAny,))
 def register(request):
     serializer=UserSerializers(data=request.data)
     if serializer.is_valid():
@@ -621,7 +644,8 @@ def products_by_category(request,category_slug):
         # Search-Filter & Ordering     -------------------------
         query_param=request.query_params.copy()
         print('$$$query_param: ',query_param)
-        if query_param is not None:
+        if query_param :
+            print('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
             products=search_filter(products=products,query_param=query_param)
         # query_param=request.query_params.copy()
         # discount=query_param.get('discount')
@@ -723,9 +747,10 @@ def products_by_category(request,category_slug):
         # att_value2=products.values_list('variations__privileged_attribute__value',flat=True)
         # att_value1=products.values_list('attribute__value',flat=True)
         # att_value1=products.values_list('attribute',flat=True)
-        for product in products:
-            r=product.attribute.values_list('value',flat=True)
-            print('r&&&&&=',r)
+        #just name of att
+        # for product in products:
+        #     r=product.attribute.values_list('value',flat=True)
+        #     print('r&&&&&=',r)
         # print('products_att_value_list',att_value1)
         # new=products.values('attribute')
         # print('products_att****',new)
@@ -735,7 +760,7 @@ def products_by_category(request,category_slug):
         #     if i not in att_value_distinct:
         #         att_value_distinct.append(i)
         # final=Attribute.objects.filter(value__in=att_value_distinct)
-
+        attribute_value = list(sorted(attribute_value, key=lambda obj:obj.name))
         attributes_serializer=AttributeSerializers(attribute_value,many=True)
         # att_val=products.values_list('attribute__value',flat=True)
         # att_val_d=products.values_list('attribute__value',flat=True).distinct() # distinct not work correctly
@@ -771,7 +796,6 @@ def products_by_category(request,category_slug):
             'attribute':{
                 'type': 'Select Box',
                 'options': {'attributes':attributes_serializer.data}
-
             }
         }
 
