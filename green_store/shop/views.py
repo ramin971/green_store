@@ -17,7 +17,7 @@ import json
 from django.db.models import Avg,Max
 from itertools import chain
 from django.db.models import Q
-
+from django.db.models import F
 # Create your views here.
 
 def token_expire_handler(token):
@@ -107,14 +107,12 @@ def search_filter(products,query_param):
 
     return products
 
-@api_view(['POST'])
+@api_view(['GET'])
 @permission_classes((AllowAny,))
 def search(request):
-    products=Product.objects.all()
-    # it = request.POST.get('search')
-    # print('it search$$$$$$$$$$$$$$$$$$4$$$$$$$$$$$$$$$', it)
-    item=request.data.get('search')
-    print('itemin search$$$$$$$$$$$$$$$$$$4$$$$$$$$$$$$$$$',item)
+    products=Product.objects.all().select_related('category')
+    item = request.query_params.get('search')
+    print('item in search$$$$$$$$$$$$$$$$$$4$$$$$$$$$$$$$$$',item)
     result=products.filter(Q(name__icontains=item)|Q(category__name__icontains=item)|
                            Q(attribute__value__icontains=item)|Q(category__parent__name__icontains=item)|
                            Q(variations__privileged_attribute__value__icontains=item)).distinct()
@@ -217,7 +215,7 @@ def get_started(request):
 @permission_classes((IsAuthenticatedOrReadOnly,))
 def category(request):
     if request.method=='GET':
-        all_category=Category.objects.all()
+        all_category=Category.objects.select_related('parent')
         serializer=CategorySerializers(all_category,many=True)
         return Response(serializer.data,status=status.HTTP_200_OK)
 
@@ -633,17 +631,18 @@ def add_edit_delete_product(request):
 def products_by_category(request,category_slug):
     if request.method=='GET':
         try:
-            # Product.objects.filter(att)
-            products=Product.objects.filter(category__slug=category_slug)
+            # p=Product.objects.all().defer('description')
+            products=Product.objects.filter(category__slug=category_slug)\
+                .prefetch_related('attribute','variations__privileged_attribute')
         except Product.DoesNotExist:
             res = {
                 'error': 'any product does not exist'
             }
             return Response(res, status=status.HTTP_400_BAD_REQUEST)
 
-        # Search-Filter & Ordering     -------------------------
+        # Filter & Ordering     --------------------------------------------
         query_param=request.query_params.copy()
-        print('$$$query_param: ',query_param)
+        # print('$$$query_param: ',query_param)
         if query_param :
             print('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
             products=search_filter(products=products,query_param=query_param)
@@ -701,7 +700,9 @@ def products_by_category(request,category_slug):
         #     print('yes temp exist')
         #     products=products.filter(attribute__in=temp_att).distinct()
         #     print('products after att filter: ',products)
+
         max_price=products.aggregate(max=Max('price'))
+
         # att2=products.values_list('variations__privileged_attribute__name',flat=True)
         # att1=products.values_list('attribute__name',flat=True)
         # chain_attribute=list(chain(att1,att2))
@@ -710,28 +711,34 @@ def products_by_category(request,category_slug):
         # for i in chain_attribute:
         #     if i not in att_distinct:
         #         att_distinct.append(i)
-        print('products:',products)
+        # print('products:',products)
         # print('products_att',(i.attribute__value for i in products))
-        for i in products:
-            print('i.att',i.attribute)
-            print('i.att__val',i.get_attribute())
-        print('end')
+        # for i in products:
+        #     print('i.att',i.attribute)
+        #     print('i.att__val',i.get_attribute())
+        # print('end')
+
+        #gereftan products ba attribute hash m-to-m
+        # s=products.annotate(attribute_value=F('attribute__value')).values()
+
         attribute_value=[]
         for product in products:
             for att in product.attribute.all():
                 if att not in attribute_value:
-                    print('added to list:',att)
+                    # print('added to list:',att)
                     attribute_value.append(att)
             # for att in product.variations.values_list('privileged_attribute__value',flat=True):
             #     a=Attribute.objects.get(att)
             #     if a not in attribute_value:
             #         attribute_value.append(a)
+
             for var in product.variations.all():
                 for att in var.privileged_attribute.all():
                     if att not in attribute_value:
-                        print('add to list2',att)
+                        # print('add to list2',att)
                         attribute_value.append(att)
-            print('****attribute****+',product,'==',attribute_value)
+
+            # print('****attribute****+',product,'==',attribute_value)
             # for i in product.variations.values_list('privileged_attribute',flat=True):
             # for i in product.variations.privileged_attribute.all():
             #     if i not in attribute_value:
@@ -743,7 +750,7 @@ def products_by_category(request,category_slug):
             # print('****privileged_attribute****+',product,'==',attribute_value)
 
             #     print('!!!!####privileged_att=',att)
-        print('kole value ha',attribute_value)
+        # print('kole value ha',attribute_value)
         # att_value2=products.values_list('variations__privileged_attribute__value',flat=True)
         # att_value1=products.values_list('attribute__value',flat=True)
         # att_value1=products.values_list('attribute',flat=True)
@@ -775,8 +782,8 @@ def products_by_category(request,category_slug):
         # print('chain(att_val1,att_val2): ',chain_att_value)
         # print('attribute_val_d: ',att_value_distinct)
         # print('@@@final attribute: ',final)
-        print('@@@final attribute_serialize: ',attributes_serializer.data)
-        print('products:',products)
+        # print('@@@final attribute_serialize: ',attributes_serializer.data)
+        # print('products:',products)
         filters = {
             'ordering': {
                 'type': 'Inline Radio',
@@ -811,7 +818,7 @@ def products_by_category(request,category_slug):
         # max_price=products.annotate(max=Max('price'))
         # print('****$$$$max-price with annotate:',max_price)
         # print('****$$$$max-price with annotate[]:',max_price['max'])
-        print('****$$$$max-price with aggrigate[]:',max_price['max'])
+        # print('****$$$$max-price with aggrigate[]:',max_price['max'])
         data={}
         data['products']=serializer.data
         data['filters']=filters
