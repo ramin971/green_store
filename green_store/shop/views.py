@@ -6,8 +6,8 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticatedOrReadOnly,AllowAny
 from .serializers import UserSerializers,ProductSerializers,CategorySerializers,\
-    ProfileSerializers,AttributeSerializers,CommentSerializers,RatingSerializers,\
-    ProductDetailSerializers,ChangePasswordSerializers,ProductImageSerializers,VariationsSerializers
+    ProfileSerializers,AttributeSerializers,CommentSerializers,RatingSerializers,ProductDetailSerializers,\
+    ChangePasswordSerializers,ProductImageSerializers,VariationsSerializers,BasketSerializers
 from .models import Product,Profile,Comment,Category,Attribute,Rating,Variation,ProductImage,Basket,Coupon
 from django.contrib.auth.models import User
 from django.utils import timezone
@@ -18,6 +18,7 @@ from django.db.models import Avg,Max
 from itertools import chain
 from django.db.models import Q
 from django.db.models import F
+from django.db.models import Prefetch
 # Create your views here.
 
 def token_expire_handler(token):
@@ -205,8 +206,9 @@ def profile(request):
 @api_view(['GET'])
 def get_started(request):
     # new_product=
-    # off_prduct=
-    # new_off=new_product+off_prduct #inoo chejory append konam queryclass bashe?
+    # off_product=
+    # most_rate=
+    # favorite=redis[product_id]
     # serializer=ProductSerializer()
     pass
 
@@ -383,31 +385,17 @@ def add_edit_delete_product(request):
             temp_category=Category.objects.get(slug=request.data['category_slug'])
             # Add(get | create) selected Attribute to Product     ----------------------
             att=request.data['attribute']
-            print('@@@att: ',att)
 
             json_att=json.loads(att)
 
-            print('@@@json_att: ',json_att)
             temp_attribute=[]
             for i in json_att:
-                print('@@@json_att.items: ',i.items())
-                print('@@@json_att.keys: ',i.keys())
-                print('@@@json_att.values: ',i.values())
-                print('@@@i: ',i)
                 name=list(i.values())[0]
                 value=list(i.values())[1]
-                print(f'name:{name},value:{value}')
-
-                # att_serializer=AttributeSerializers(data=dict(i.values()),many=True)
-                # if att_serializer.is_valid(raise_exception=True):
-                #     att_serializer.save()
-
+                # print(f'name:{name},value:{value}')
                 attr,created=Attribute.objects.get_or_create(name=name,value=value)
                 temp_attribute.append(attr)
 
-            # list_att=request.data.getlist('attribute')
-            # print('@@@list_json_att: ',list_att)
-            # print('@@@list_json_att.items: ',list_att.items()) #error
 
             # names=[]
             # values=[]
@@ -421,7 +409,7 @@ def add_edit_delete_product(request):
             #         values.append(i['value'])
             #
             # temp_attribute=Attribute.objects.filter(name__in=names,value__in=values)
-            print('****temp_att***',temp_attribute)
+            # print('****temp_att***',temp_attribute)
             product=Product(category=temp_category)
             serializer = ProductSerializers(product,data=request.data)
             if serializer.is_valid():
@@ -436,49 +424,47 @@ def add_edit_delete_product(request):
                 MAX_FILE_SIZE = 512000
                 images_406=[]
                 for image in all_image:
-                    print('image:',image)
+                    # print('image:',image)
                     if image.size > MAX_FILE_SIZE:
-                            print('$$$$$$image size: ', image.size)
+                            # print('$$$$$$image size: ', image.size)
                             images_406.append(image)
                             continue
-                            # raise ValidationError("image size too big.The image size must be less than 500kb ")
-                            # res={
-                            #     'error':f'size of({image})image is too big.The image size must be less than 500kb '
-                            # }
-                            # return Response(res,status=status.HTTP_406_NOT_ACCEPTABLE)
+
                     ProductImage.objects.create(product=product,images=image)
 
                 # Add Variations to Product        -----------------------------
-                if 'var_id' in request.data:
-                    var_id = request.data['var_id']
-                    temp_variation=Variation.objects.filter(id__in=var_id)
-                    print('var_id: ',var_id)
-                    print('temp_var***** : ',temp_variation)
-                    for i in var_id:
-                        product.variations.add(i)
+
+                # if you want to add vatiation to product via var_id you must add blank=True , Null=True to model-field:variation_product
+                # if 'var_id' in request.data:
+                #     var_id = request.data['var_id']
+                #     print('var_id',var_id)
+                #     print(type(var_id))
+                #     new=json.loads(var_id)
+                #     print('new',new)
+                #     print(type(new))
+                #     print(type(new[0]))
+                #     temp_variation=Variation.objects.filter(id__in=new)
+                #     print('tempvar',temp_variation)
+                #
+                #     for i in temp_variation:
+                #         if i.product :
+                #             print('***this variation is used for ',i.product.name)
+                #         product.variations.add(i)
                         # product.variations.add(temp_variation)
                 if 'variations' in request.data:
                     variations=request.data.get('variations')
                     json_variation=json.loads(variations)
-                    print('%%%variations',variations)
+
                     for variation in json_variation:
-                        print('%%%variation',variation)
 
                         att=variation['privileged_attribute']
-                        print('%%%att: ', att)
 
-                        # json_att = json.loads(att)
-
-                        # print('%%%json_att: ', json_att)
                         temp_attribute = []
                         for i in att:
-                            print('%%%json_att.items: ', i.items())
-                            # print('@@@json_att.keys: ', i.keys())
-                            print('%%%json_att.values: ', i.values())
-                            print('%%%i: ', i)
+
                             name = list(i.values())[0]
                             value = list(i.values())[1]
-                            print(f'name:{name},value:{value}')
+                            # print(f'name:{name},value:{value}')
 
                             attr, created = Attribute.objects.get_or_create(name=name, value=value)
                             temp_attribute.append(attr)
@@ -530,25 +516,14 @@ def add_edit_delete_product(request):
                 json_variation = json.loads(variations)
                 # remove old variation
                 Variation.objects.filter(product=product).delete()
-                print('%%%variations', variations)
+
                 for variation in json_variation:
-                    print('%%%variation', variation)
-
                     att = variation['privileged_attribute']
-                    print('%%%att: ', att)
-
-                    # json_att = json.loads(att)
-
-                    # print('%%%json_att: ', json_att)
                     temp_attribute = []
                     for i in att:
-                        print('%%%json_att.items: ', i.items())
-                        # print('@@@json_att.keys: ', i.keys())
-                        print('%%%json_att.values: ', i.values())
-                        print('%%%i: ', i)
                         name = list(i.values())[0]
                         value = list(i.values())[1]
-                        print(f'name:{name},value:{value}')
+                        # print(f'name:{name},value:{value}')
 
                         attr, created = Attribute.objects.get_or_create(name=name, value=value)
                         temp_attribute.append(attr)
@@ -572,12 +547,6 @@ def add_edit_delete_product(request):
                     value = list(i.values())[1]
                     attr, created = Attribute.objects.get_or_create(name=name, value=value)
                     temp_attribute.append(attr)
-                    # if not i.get('name') in names:
-                    #     # print(i['name'])
-                    #     names.append(i['name'])
-                    # if not i['value'] in values:
-                    #     # print(i['value'])
-                    #     values.append(i['value'])
 
                 # temp_attribute = Attribute.objects.filter(name__in=names, value__in=values)
                 # remove old attribute
@@ -646,77 +615,9 @@ def products_by_category(request,category_slug):
         if query_param :
             print('%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%')
             products=search_filter(products=products,query_param=query_param)
-        # query_param=request.query_params.copy()
-        # discount=query_param.get('discount')
-        # stock=query_param.get('stock')
-        # max_price=query_param.get('maxprice')
-        # min_price=query_param.get('minprice')
-        # ordering=query_param.get('sort')
-        #
-        # if ordering:
-        #     if ordering=='lowprice':
-        #         products=products.order_by('price')
-        #     if ordering=='highprice':
-        #         products=products.order_by('-price')
-        #     if ordering=='rate':
-        #         products=products.annotate(avg=Avg('rates__rate')).order_by('-avg')
-        #     # if ordering==''
-        #     query_param.pop('sort')
-        #
-        # if (max_price and min_price):
-        #     products=products.filter(price__range=(min_price,max_price))
-        #     print('products after price filter: ',products)
-        #     query_param.pop('maxprice')
-        #     query_param.pop('minprice')
-        # print('query_param after maxmin=',query_param)
-        #
-        # if discount:
-        #     if discount == '1':
-        #         products=products.filter(discount__isnull=False)
-        #         print('products after discount filter: ', products)
-        #     query_param.pop('discount')
-        # print('query_param after discount=',query_param)
-        #
-        # if stock:
-        #     if stock == '1':
-        #         products=products.filter(stock__gt=0)
-        #         print('products after stock filter: ', products)
-        #     query_param.pop('stock')
-        # print('query_param after stock=',query_param)
-        # print('query_param key=',query_param.keys())
-        # print('query_param value=',query_param.values())
-        # names=query_param.keys()
-        # values=[]
-        #
-        # for item in query_param:
-        #     for value in query_param.getlist(item):
-        #         print('value',value)
-        #         values.append(value)
-        #
-        # temp_att=Attribute.objects.filter(name__in=names,value__in=values)
-        # print(temp_att)
-        #
-        # if temp_att.exists():
-        #     print('yes temp exist')
-        #     products=products.filter(attribute__in=temp_att).distinct()
-        #     print('products after att filter: ',products)
 
         max_price=products.aggregate(max=Max('price'))
 
-        # att2=products.values_list('variations__privileged_attribute__name',flat=True)
-        # att1=products.values_list('attribute__name',flat=True)
-        # chain_attribute=list(chain(att1,att2))
-        # union_attribute=list(att1.union(att2,all=True)) # error database
-        # att_distinct=[]
-        # for i in chain_attribute:
-        #     if i not in att_distinct:
-        #         att_distinct.append(i)
-        # print('products:',products)
-        # print('products_att',(i.attribute__value for i in products))
-        # for i in products:
-        #     print('i.att',i.attribute)
-        #     print('i.att__val',i.get_attribute())
-        # print('end')
 
         #gereftan products ba attribute hash m-to-m
         # s=products.annotate(attribute_value=F('attribute__value')).values()
@@ -727,10 +628,6 @@ def products_by_category(request,category_slug):
                 if att not in attribute_value:
                     # print('added to list:',att)
                     attribute_value.append(att)
-            # for att in product.variations.values_list('privileged_attribute__value',flat=True):
-            #     a=Attribute.objects.get(att)
-            #     if a not in attribute_value:
-            #         attribute_value.append(a)
 
             for var in product.variations.all():
                 for att in var.privileged_attribute.all():
@@ -738,52 +635,15 @@ def products_by_category(request,category_slug):
                         # print('add to list2',att)
                         attribute_value.append(att)
 
-            # print('****attribute****+',product,'==',attribute_value)
-            # for i in product.variations.values_list('privileged_attribute',flat=True):
-            # for i in product.variations.privileged_attribute.all():
-            #     if i not in attribute_value:
-            #         attribute_value.append(i)
-                #forloop for att req
-            # new=Attribute.objects.filter(products=product)
-            # if new not in attribute_value:
-            #     attribute_value.append(new)
-            # print('****privileged_attribute****+',product,'==',attribute_value)
 
-            #     print('!!!!####privileged_att=',att)
-        # print('kole value ha',attribute_value)
-        # att_value2=products.values_list('variations__privileged_attribute__value',flat=True)
-        # att_value1=products.values_list('attribute__value',flat=True)
-        # att_value1=products.values_list('attribute',flat=True)
         #just name of att
         # for product in products:
         #     r=product.attribute.values_list('value',flat=True)
         #     print('r&&&&&=',r)
-        # print('products_att_value_list',att_value1)
-        # new=products.values('attribute')
-        # print('products_att****',new)
-        # chain_att_value=list(chain(att_value1,att_value2))
-        # att_value_distinct = []
-        # for i in chain_att_value:
-        #     if i not in att_value_distinct:
-        #         att_value_distinct.append(i)
-        # final=Attribute.objects.filter(value__in=att_value_distinct)
+
         attribute_value = list(sorted(attribute_value, key=lambda obj:obj.name))
         attributes_serializer=AttributeSerializers(attribute_value,many=True)
-        # att_val=products.values_list('attribute__value',flat=True)
-        # att_val_d=products.values_list('attribute__value',flat=True).distinct() # distinct not work correctly
-        # print('attribute: ',att1)
-        # print('attribute2: ',att2)
-        # print('chain(att2,att1): ',chain_attribute)
-        # print('attribute_d: ',att_d)
-        # print('attribute_distinct: ',att_distinct)
 
-        # print('attribute_val1: ',att_value1)
-        # print('attribute_val2: ',att_value2)
-        # print('chain(att_val1,att_val2): ',chain_att_value)
-        # print('attribute_val_d: ',att_value_distinct)
-        # print('@@@final attribute: ',final)
-        # print('@@@final attribute_serialize: ',attributes_serializer.data)
-        # print('products:',products)
         filters = {
             'ordering': {
                 'type': 'Inline Radio',
@@ -812,18 +672,14 @@ def products_by_category(request,category_slug):
         result_page=paginator.paginate_queryset(products,request)
 
         serializer=ProductSerializers(result_page,many=True)
+
         # remove Unnecessary data from serializer.data to send client
         for i in serializer.data:
             i.pop('description')
-        # max_price=products.annotate(max=Max('price'))
-        # print('****$$$$max-price with annotate:',max_price)
-        # print('****$$$$max-price with annotate[]:',max_price['max'])
-        # print('****$$$$max-price with aggrigate[]:',max_price['max'])
+
         data={}
         data['products']=serializer.data
         data['filters']=filters
-        # serializer.data.update({'filters':filters})#error : has no attribute update
-        # return paginator.get_paginated_response(serializer.data)
         return paginator.get_paginated_response(data)
         # response=paginator.get_paginated_response(serializer.data)
         # response['filters']=filters
@@ -834,7 +690,7 @@ def products_by_category(request,category_slug):
 @permission_classes((IsAuthenticatedOrReadOnly,))
 def product_details(request,product_slug):
     try:
-        product=Product.objects.get(slug=product_slug)
+        product=Product.objects.prefetch_related('variations__privileged_attribute').get(slug=product_slug)
     except Product.DoesNotExist:
         res = {
             'error': 'product with this Slug does not exist'
@@ -843,9 +699,30 @@ def product_details(request,product_slug):
 
     if request.method=='GET':
         # Paginate Comments of Product + ProductDetailSerializer.get_comments
+        comments=product.comments.filter(show=True)
         paginator = PageNumberPagination()
-        paginator.page_size = 1
-        paginator.paginate_queryset(product.comments.filter(show=True), request)
+        paginator.page_size = 2
+        # paginator.paginate_queryset(product.comments.filter(show=True), request)
+        result_page=paginator.paginate_queryset(comments, request)
+        comment_serializer=CommentSerializers(result_page,many=True)
         serializer = ProductDetailSerializers(product,context={'request':request})
-        return paginator.get_paginated_response(serializer.data)
+        data={}
+        data['product']=serializer.data
+        data['comments']=comment_serializer.data
+        return paginator.get_paginated_response(data)
+        # return paginator.get_paginated_response(serializer.data)
 
+# def add_to_cart
+
+@api_view(['GET'])
+def basket(request):
+    try:
+        user=request.user
+        # Check token expire
+        token_expire_handler(token=request.auth)
+        basket=Basket.objects.filter(user=user)
+    except:
+        return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    serializer=BasketSerializers(basket,many=True)
+    return Response(serializer.data,status=status.HTTP_200_OK)

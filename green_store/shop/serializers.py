@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Product,Profile,Comment,Category,Attribute,Rating,Variation,Basket,ProductImage,Coupon
+from .models import Product,Profile,Comment,Category,Attribute,Rating,Variation,Basket,ProductImage,Coupon,OrderItem
 from django.contrib.auth.models import User
 from django.db.models import Avg
 from django.contrib.auth.password_validation import validate_password
@@ -101,6 +101,8 @@ class ProductSerializers(serializers.ModelSerializer):
         model=Product
         fields=['id','name','images','price','description','stock',
                 'created','rate','discount','new_price']
+        extra_kwargs={"new_price":{"read_only":True}}
+
     #
     # def create(self, validated_data):
     #     images_data = self.context.get('view').request.FILES
@@ -117,7 +119,7 @@ class ProductSerializers(serializers.ModelSerializer):
 
     def get_images(self,obj):
         image=obj.images.values()
-        # image=obj.images.values().first()
+        # image=list(obj.images.values_list(flat=True))
         return image
 
     def get_rate(self,obj):
@@ -142,7 +144,7 @@ class VariationsSerializers(serializers.ModelSerializer):
 
 class ProductDetailSerializers(serializers.ModelSerializer):
     rate=serializers.SerializerMethodField()
-    comments=serializers.SerializerMethodField()
+    # comments=serializers.SerializerMethodField()
     images=serializers.SerializerMethodField()
     new_price=serializers.SerializerMethodField()
     variations=VariationsSerializers(many=True,read_only=True)
@@ -151,7 +153,10 @@ class ProductDetailSerializers(serializers.ModelSerializer):
     class Meta:
         model=Product
         fields=['id','name','images','price','discount','new_price','rate','stock',
-                'created','description','attribute','comments','variations']
+                'created','description','attribute','variations']
+
+        read_only_fields = ['id', 'name', 'images', 'price', 'discount', 'new_price', 'rate', 'stock',
+                  'created', 'description', 'attribute', 'variations']
 
     def get_images(self,obj):
         image=obj.images.values()
@@ -161,21 +166,37 @@ class ProductDetailSerializers(serializers.ModelSerializer):
         avg_rate=obj.rates.aggregate(avg=Avg('rate'))
         return avg_rate['avg']
 
-    def get_comments(self,obj):
-        comments=obj.comments.filter(show=True).values()
-        paginator = PageNumberPagination()
-        paginator.page_size = 1
-        # serializer=CommentSerializers(comments,many=True,context={'request': self.context['request']})
-        # result_page = paginator.paginate_queryset(serializer.data,self.context['request'] )
-        # return result_page
-        # ^ or ->
-        result_page = paginator.paginate_queryset(comments,self.context['request'] )
-        serializer=CommentSerializers(result_page,many=True)
-        return serializer.data
+    # def get_comments(self,obj):
+    #     comments=obj.comments.filter(show=True).values()
+    #     paginator = PageNumberPagination()
+    #     paginator.page_size = 3
+    #
+    #     serializer=CommentSerializers(comments,many=True,context={'request': self.context['request']})
+    #     result_page = paginator.paginate_queryset(serializer.data,self.context['request'] )
+    #     return result_page
+
+    #     # ^ or ->
+        # result_page = paginator.paginate_queryset(comments,self.context['request'] )
+        # serializer=CommentSerializers(result_page,many=True)
+        # return serializer.data
 
     def get_new_price(self,obj):
         old_price = obj.price
         discount = obj.discount
-        if discount is not None:
+        if discount:
             new_price = old_price - (discount * old_price // 100)
             return new_price
+
+
+class OrderItemSerializers(serializers.ModelSerializer):
+    class Meta:
+        model=OrderItem
+        fields=['id','user','product','quantity','in_basket']
+        read_only_field=['id','user']
+
+class BasketSerializers(serializers.ModelSerializer):
+    class Meta:
+        model = Basket
+        fields=['id','user','order_items','ordered_date','coupon','payment','provider_order','send_order']
+        read_only_fields=['id','user','payment','provider_order','send_order']
+

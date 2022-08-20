@@ -50,7 +50,7 @@ class VariationAdmin(admin.ModelAdmin):
 
 
 class BasketAdmin(admin.ModelAdmin):
-    list_display = ['user','product','quantity','coupon']
+    list_display = ['user','get_order_items','ordered_date','coupon','payment','provide_order','send_order']
     search_fields = ['user',]
 
 

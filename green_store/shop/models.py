@@ -115,15 +115,53 @@ class Coupon(models.Model):
 #     user=models.OneToOneField(User,on_delete=models.CASCADE,related_name='order')
 #     coupon=models.ForeignKey(Coupon,on_delete=models.SET_NULL,null=True,blank=True)
 
-class Basket(models.Model):
-    user=models.ForeignKey(User,on_delete=models.CASCADE,related_name='basket')
+class OrderItem(models.Model):
+    user = models.ForeignKey(User,on_delete=models.CASCADE,related_name='orders')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveSmallIntegerField(default=1)
-    coupon=models.ForeignKey(Coupon,on_delete=models.SET_NULL,null=True,blank=True)
+    in_basket = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f'{self.quantity} of {self.product.name}'
+
+    def get_total_product_price(self):
+        if self.product.discount:
+            old_price=self.product.price
+            discount=self.product.discount
+            new_price = old_price - (discount * old_price // 100)
+            return self.quantity * new_price
+        return self.quantity * self.product.price
+
+class Basket(models.Model):
+    user = models.ForeignKey(User,on_delete=models.CASCADE,related_name='baskets')
+    order_items = models.ManyToManyField(OrderItem)
+    ordered_date = models.DateTimeField(null=True)
+    coupon = models.ForeignKey(Coupon,on_delete=models.SET_NULL,null=True,blank=True)
+    payment = models.BooleanField(default=False)
+    provide_order=models.BooleanField(default=False)
+    send_order = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.user.username
+
+    def get_total_price(self):
+        total=0
+        for order_item in self.order_items.all():
+            total += order_item.get_total_product_price()
+        if self.coupon:
+            total -= self.coupon.amount
+        return total
+
+    def get_order_items(self):
+        return ',\n'.join([str(p) for p in self.order_items.all()])
+
     class Meta:
         constraints=[
             models.UniqueConstraint(fields=['user','coupon'],name='uniq_coupon')
         ]
+
+
+
 
 class Comment(models.Model):
     user=models.ForeignKey(User,on_delete=models.CASCADE,related_name='comments')
@@ -132,7 +170,8 @@ class Comment(models.Model):
     product=models.ForeignKey(Product,on_delete=models.CASCADE,related_name='comments')
     # def __str__(self):
     #     return self.pk
-
+    class Meta:
+        ordering=('-id',)
 class Rating(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='rates')
     rate = models.IntegerField(validators=[MinValueValidator(0),MaxValueValidator(5)])
