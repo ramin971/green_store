@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Profile,Attribute,Category,Product,Comment,Rating,Coupon,ProductImage,Variation,Basket
+from .models import Profile,Attribute,Category,Product,Comment,Rating,Coupon,ProductImage,Variation,Basket,OrderItem
 from django.db.models import Avg,Sum
 # Register your models here.
 
@@ -51,7 +51,14 @@ class VariationAdmin(admin.ModelAdmin):
 
 class BasketAdmin(admin.ModelAdmin):
     list_display = ['user','get_order_items','ordered_date','coupon','payment','provide_order','send_order']
-    search_fields = ['user',]
+    readonly_fields = ['tracking_code']
+    search_fields = ['user','tracking_code']
+    list_filter = ['provide_order','send_order','ordered_date']
+
+    # Function to filter and display just Basket object that payment=True/
+    # def get_queryset(self, request):
+    #     qs = super(BasketAdmin, self).get_queryset(request)
+    #     return qs.filter(payment=True)
 
 
 
@@ -65,3 +72,4 @@ admin.site.register(Variation,VariationAdmin)
 admin.site.register(ProductImage)
 admin.site.register(Coupon)
 admin.site.register(Basket,BasketAdmin)
+admin.site.register(OrderItem)

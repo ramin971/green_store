@@ -25,7 +25,8 @@ urlpatterns = [
     path('products/<slug:product_slug>', views.product_details, name='product_detail'),
     path('<slug:category_slug>',views.products_by_category,name='products_by_category'),
     # Basket section
-    path('basket/',views.basket,name='basket')
+    path('basket/',views.basket,name='basket'),
+    path('add_to_basket/',views.add_to_basket,name='add_to_basket')
 
  ]
 if settings.DEBUG:

@@ -1,7 +1,9 @@
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import User
 from django.utils.text import slugify
 from django.core.validators import MaxValueValidator,MinValueValidator,RegexValidator
+from rest_framework.exceptions import NotAcceptable
 # Create your models here.
 
 
@@ -83,7 +85,7 @@ class Product(models.Model):
 
 class ProductImage(models.Model):
     images=models.ImageField(upload_to='images/%Y/%m/%d/',max_length=512000)
-    product=models.ForeignKey(Product,on_delete=models.CASCADE,null=True,related_name='images')
+    product=models.ForeignKey(Product,on_delete=models.CASCADE,related_name='images')
     def __str__(self):
         return str(self.product)
 
@@ -115,34 +117,30 @@ class Coupon(models.Model):
 #     user=models.OneToOneField(User,on_delete=models.CASCADE,related_name='order')
 #     coupon=models.ForeignKey(Coupon,on_delete=models.SET_NULL,null=True,blank=True)
 
-class OrderItem(models.Model):
-    user = models.ForeignKey(User,on_delete=models.CASCADE,related_name='orders')
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveSmallIntegerField(default=1)
-    in_basket = models.BooleanField(default=True)
 
-    def __str__(self):
-        return f'{self.quantity} of {self.product.name}'
-
-    def get_total_product_price(self):
-        if self.product.discount:
-            old_price=self.product.price
-            discount=self.product.discount
-            new_price = old_price - (discount * old_price // 100)
-            return self.quantity * new_price
-        return self.quantity * self.product.price
 
 class Basket(models.Model):
+    STATUS_CHOICES=(('queue','Queue'),('providing','Providing'),('complete','Complete'))
     user = models.ForeignKey(User,on_delete=models.CASCADE,related_name='baskets')
-    order_items = models.ManyToManyField(OrderItem)
-    ordered_date = models.DateTimeField(null=True)
+    tracking_code=models.CharField(max_length=8,blank=True,null=True,unique=True)
+    # order_items = models.ManyToManyField(OrderItem)
+    ordered_date = models.DateTimeField(null=True,blank=True)
     coupon = models.ForeignKey(Coupon,on_delete=models.SET_NULL,null=True,blank=True)
     payment = models.BooleanField(default=False)
-    provide_order=models.BooleanField(default=False)
+    provide_order=models.CharField(max_length=10,choices=STATUS_CHOICES,default='queue')
     send_order = models.BooleanField(default=False)
 
+    class Meta:
+        constraints=[
+            # models.UniqueConstraint(fields=['payment','user'], condition=Q(payment=False), name='unique_free_basket'), # not work
+            models.UniqueConstraint(fields=['user','coupon'],name='uniq_coupon'),
+
+        ]
+
+
     def __str__(self):
-        return self.user.username
+        return f'{self.user.username} , {self.id}'
+
 
     def get_total_price(self):
         total=0
@@ -155,11 +153,47 @@ class Basket(models.Model):
     def get_order_items(self):
         return ',\n'.join([str(p) for p in self.order_items.all()])
 
-    class Meta:
-        constraints=[
-            models.UniqueConstraint(fields=['user','coupon'],name='uniq_coupon')
-        ]
+    # Limit each User to have one Basket(payment=False)
+    def save(self,*args,**kwargs):
+        if not self.payment:
+            try:
+                temp=Basket.objects.get(user=self.user ,payment=False)
+                print('temp*******',temp)
+                # print('temp-value*******',temp._meta.get_fields())
+                if self != temp:
+                    raise NotAcceptable('basket is exist')
+                super(Basket,self).save(*args,**kwargs)
 
+            except Basket.DoesNotExist:
+                print('basket not exist***')
+                super(Basket,self).save(*args,**kwargs)
+        super(Basket, self).save(*args, **kwargs)
+
+
+
+
+class OrderItem(models.Model):
+    user = models.ForeignKey(User,on_delete=models.CASCADE,related_name='order_items')
+    basket = models.ForeignKey(Basket,on_delete=models.CASCADE,related_name='order_items')
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveSmallIntegerField(default=1)
+    in_basket = models.BooleanField(default=True)
+    # class Meta:
+    #     constraints = [
+    #         models.UniqueConstraint(fields=['basket','product__variations'],name='unique_basket_var')
+    #     ]
+
+    def __str__(self):
+        return f'{self.product.name}({self.quantity})\n'
+        # return f'{self.quantity} of {self.product.name}'
+
+    def get_total_product_price(self):
+        if self.product.discount:
+            old_price=self.product.price
+            discount=self.product.discount
+            new_price = old_price - (discount * old_price // 100)
+            return self.quantity * new_price
+        return self.quantity * self.product.price
 
 
 

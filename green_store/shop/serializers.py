@@ -63,10 +63,12 @@ class CategorySerializers(serializers.ModelSerializer):
         # return obj.__str__()
 
 class ProfileSerializers(serializers.ModelSerializer):
+    # user=UserSerializers(read_only=True)
     class Meta:
         model=Profile
+        # fields=['id','f_name','l_name','address','email','postal_code','phone','created','user']
         fields='__all__'
-        extra_kwargs = {"user": {"read_only": True}}
+        extra_kwargs = {"user": {"read_only": True},"id":{"read_only":True}}
 
 
 class AttributeSerializers(serializers.ModelSerializer):
@@ -189,14 +191,18 @@ class ProductDetailSerializers(serializers.ModelSerializer):
 
 
 class OrderItemSerializers(serializers.ModelSerializer):
+    user=UserSerializers(read_only=True)
+    product=ProductSerializers(read_only=True)
     class Meta:
         model=OrderItem
         fields=['id','user','product','quantity','in_basket']
-        read_only_field=['id','user']
+        read_only_field=['__all__']
 
 class BasketSerializers(serializers.ModelSerializer):
+    user=UserSerializers(read_only=True)
+    order_items=OrderItemSerializers(many=True)
     class Meta:
         model = Basket
-        fields=['id','user','order_items','ordered_date','coupon','payment','provider_order','send_order']
+        fields=['id','user','order_items','ordered_date','coupon','payment','provide_order','send_order']
         read_only_fields=['id','user','payment','provider_order','send_order']
 
