@@ -146,6 +146,7 @@ USE_TZ = True
 # 86400 second = 1 day
 TOKEN_EXPIRED_AFTER_SECONDS = 86400
 
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.0/howto/static-files/
 

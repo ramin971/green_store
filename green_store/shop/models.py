@@ -166,7 +166,7 @@ class Basket(models.Model):
 
             except Basket.DoesNotExist:
                 print('basket not exist***')
-                super(Basket,self).save(*args,**kwargs)
+                # super(Basket,self).save(*args,**kwargs)
         super(Basket, self).save(*args, **kwargs)
 
 
@@ -177,14 +177,19 @@ class OrderItem(models.Model):
     basket = models.ForeignKey(Basket,on_delete=models.CASCADE,related_name='order_items')
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
     quantity = models.PositiveSmallIntegerField(default=1)
-    in_basket = models.BooleanField(default=True)
+    variation = models.ForeignKey(Variation,on_delete=models.CASCADE,null=True,blank=True,related_name='order_items')
+    # attribute = models.OneToOneField(Attribute,on_delete=models.CASCADE,null=True,blank=True,related_name='order_item')
+    # in_basket = models.BooleanField(default=True)
     # class Meta:
     #     constraints = [
-    #         models.UniqueConstraint(fields=['basket','product__variations'],name='unique_basket_var')
+    #         models.UniqueConstraint(fields=['attribute','attribute__name'],name='unique_basket_var')
+    #         models.UniqueConstraint(fields=['attribute__name'],name='unique_basket_var')
+    #         # models.UniqueConstraint(fields=['attribute'], condition=Q(attribute.name=unique), name='unique_free_basket'), # not work
+    #
     #     ]
 
     def __str__(self):
-        return f'{self.product.name}({self.quantity})\n'
+        return f'>{self.product.name}-{list(self.variation.privileged_attribute.values_list("value",flat=True))}({self.quantity})#'
         # return f'{self.quantity} of {self.product.name}'
 
     def get_total_product_price(self):

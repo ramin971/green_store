@@ -678,8 +678,8 @@ def products_by_category(request,category_slug):
         serializer=ProductSerializers(result_page,many=True)
 
         # remove Unnecessary data from serializer.data to send client
-        for i in serializer.data:
-            i.pop('description')
+        # for i in serializer.data:
+        #     i.pop('description')
 
         data={}
         data['products']=serializer.data
@@ -718,19 +718,38 @@ def product_details(request,product_slug):
 
 @api_view(['POST'])
 def add_to_basket(request):
-    try:
-        # Check token expire
-        token_expire_handler(token=request.auth)
-        user=request.user
-        if 'variation_id' in request.data:
-            product=get_object_or_404(Product,pk=request.data['product_id'],variation_id=request.data['variation_id'])
-            print('product-var',product)
-        else:
-            product = get_object_or_404(Product, pk=request.data['product_id'])
+    # Check token expire
+    token_expire_handler(token=request.auth)
 
-            print("product",product)
-    except:
-        return Response(status=status.HTTP_404_NOT_FOUND)
+    user=request.user
+        # if 'variation_id' in request.data:
+        #     product=get_object_or_404(Product,pk=request.data['product_id'],variations__id=request.data['variation_id'])
+        #     variation_id=request.data['variation_id']
+        #     print('product-var',product)
+        # else:
+        #     product = get_object_or_404(Product, pk=request.data['product_id'])
+        #     variation_id=None
+    product=get_object_or_404(Product,pk=request.data['product_id'])
+    if product.variations.exists():
+        print('variations exists')
+        try:
+            variation_id=request.data['variation_id']
+            product=get_object_or_404(Product,pk=request.data['product_id'],variations__id=request.data['variation_id'])
+        except:
+            res = {
+                'error': 'product with this Variation_Id does not exist'
+            }
+            return Response(res, status=status.HTTP_400_BAD_REQUEST)
+    else:
+        variation_id=None
+
+    p1=product.variations.filter(id=variation_id)
+    print(p1)
+    print('##########!!!',p1.exists())
+    # p2=product.variations.get(id=variation_id)
+    # print(p2)
+    # product.objects.filter(variations)
+
 
     if product.stock <= 0:
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -751,37 +770,42 @@ def add_to_basket(request):
     if basket:
         print('basket exist')
         # exist_product=basket.order_items.get(product=product)
-        # order_item,created=basket.order_items.get_or_create(user=user,product=product,basket=basket)
-        order_item = OrderItem.objects.filter(user=user, product=product, basket=basket).first()
-
-        if order_item:
+        # if not work%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  if
+        # order_item,created=basket.order_items.get_or_create(user=user,product=product,variation_id=variation_id)
+        order_item,created=OrderItem.objects.get_or_create(user=user,product=product,basket=basket,variation_id=variation_id)
+        if not created:
             print('product exist in basket')
             order_item.quantity += 1
             order_item.save()
             print(f'add to quantity of {product},{order_item} ')
-
-        # if basket.order_items.filter(pk=order_item.pk).exists():
-        #     print('step5')
+        print('end')
+        basket_serializer=BasketSerializers(basket)
+        return Response(basket_serializer.data)
+        # this work %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%  else
+        # order_item = OrderItem.objects.filter(user=user, product=product, basket=basket, variation_id=variation_id).first()
         #
+        # if order_item:
+        #     print('product exist in basket')
         #     order_item.quantity += 1
         #     order_item.save()
-        #     print('added +1 in basket')
-        else:
-            print('product not exist in basket')
-            order_item = OrderItem.objects.create(user=user, product=product, basket=basket)
-
-            # basket.order_items.add(order_item)
-            print('new added order item to basket')
-        print('ok')
-        basket_serializer = BasketSerializers(basket)
-        return Response(basket_serializer.data)
+        #     print(f'add to quantity of {product},{order_item} ')
+        #
+        # else:
+        #     print('product not exist in basket')
+        #     order_item = OrderItem.objects.create(user=user, product=product, basket=basket,variation_id=variation_id)
+        #
+        #     # basket.order_items.add(order_item)
+        #     print('new added order item to basket')
+        # print('ok')
+        # basket_serializer = BasketSerializers(basket)
+        # return Response(basket_serializer.data)
     else:
         print('basket creating')
         basket = Basket.objects.create(user=user,payment=False)
         print('created basket')
         if basket:
             print('yes')
-            order_item=OrderItem.objects.create(user=user,product=product,basket=basket)
+            order_item=OrderItem.objects.create(user=user,product=product,basket=basket,variation_id=variation_id)
             print('ordr item created')
             # order_item=OrderItem.objects.create(user=user,product=product)
             # basket.order_items.add(order_item)
@@ -804,43 +828,33 @@ def add_to_basket(request):
 
 @api_view(['GET'])
 def basket(request):
-    try:
-        user=request.user
-        # Check token expire
-        token_expire_handler(token=request.auth)
-        basket=Basket.objects.filter(user=user)
-    except:
-        return Response(status=status.HTTP_400_BAD_REQUEST)
+    # Check token expire
+    token_expire_handler(token=request.auth)
+    user = request.user
+    basket=Basket.objects.filter(user=user).select_related('coupon').prefetch_related('order_items','order_items__user','order_items__product','order_items__variation__privileged_attribute')
+    # basket=Basket.objects.filter(user=user).select_related('coupon')
+    if not basket.exists():
+        return Response(status=status.HTTP_404_NOT_FOUND)
     free_basket=basket.filter(payment=False).first()
-    order_items=free_basket.order_items.all()
-    removed_products=[]
-    for order_item in order_items:
-        if order_item.product.stock == 0:
-            removed_products.append(order_item)
-            print(f'###{order_item} deleted')
-            order_item.delete()
+    removed_products = []
+    if free_basket:
+        order_items=free_basket.order_items.all()
+        for order_item in order_items:
+            if order_item.product.stock == 0:
+                removed_products.append(order_item)
+                print(f'###{order_item} deleted')
+                order_item.delete()
 
-    print(removed_products,'----')
     previous_basket=basket.filter(payment=True)
-    print('previous basket',previous_basket)
-    free_basket=basket.filter(payment=False).first()
-    print('free basket',free_basket)
-
+    # free_basket=basket.filter(payment=False).first()
     b_serializer=BasketSerializers(free_basket)
-    print('b_serializer')
     pb_serializer=BasketSerializers(previous_basket,many=True)
-    print('pb_serializer')
     res=b_serializer.data
-    print('oo')
     if removed_products:
-        print('yes')
         order_item_serializer=OrderItemSerializers(removed_products,many=True)
         res['out_of_stock']=order_item_serializer.data
     data={}
     data['basket']=res
-    print('55')
     data['previous_basket']=pb_serializer.data
-    print('end')
-
 
     return Response(data,status=status.HTTP_200_OK)

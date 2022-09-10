@@ -103,7 +103,7 @@ class ProductSerializers(serializers.ModelSerializer):
         model=Product
         fields=['id','name','images','price','description','stock',
                 'created','rate','discount','new_price']
-        extra_kwargs={"new_price":{"read_only":True}}
+        extra_kwargs={"new_price":{"read_only":True},"description":{"write_only":True}}
 
     #
     # def create(self, validated_data):
@@ -120,7 +120,7 @@ class ProductSerializers(serializers.ModelSerializer):
 
 
     def get_images(self,obj):
-        image=obj.images.values()
+        image=obj.images.values().first()
         # image=list(obj.images.values_list(flat=True))
         return image
 
@@ -193,9 +193,10 @@ class ProductDetailSerializers(serializers.ModelSerializer):
 class OrderItemSerializers(serializers.ModelSerializer):
     user=UserSerializers(read_only=True)
     product=ProductSerializers(read_only=True)
+    variation=VariationsSerializers(read_only=True)
     class Meta:
         model=OrderItem
-        fields=['id','user','product','quantity','in_basket']
+        fields=['id','user','product','quantity','variation']
         read_only_field=['__all__']
 
 class BasketSerializers(serializers.ModelSerializer):
