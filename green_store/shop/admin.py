@@ -50,15 +50,15 @@ class VariationAdmin(admin.ModelAdmin):
 
 
 class BasketAdmin(admin.ModelAdmin):
-    list_display = ['user','get_order_items','ordered_date','coupon','payment','provide_order','send_order']
-    readonly_fields = ['tracking_code']
+    list_display = ['user','get_order_items','ordered_date','coupon','payment','status','get_total_price']
+    readonly_fields = ['user','tracking_code','get_total_price','payment','coupon','ordered_date']
     search_fields = ['user','tracking_code']
-    list_filter = ['provide_order','send_order','ordered_date']
+    list_filter = ['status','ordered_date']
 
     # Function to filter and display just Basket object that payment=True/
-    # def get_queryset(self, request):
-    #     qs = super(BasketAdmin, self).get_queryset(request)
-    #     return qs.filter(payment=True)
+    def get_queryset(self, request):
+        qs = super(BasketAdmin, self).get_queryset(request)
+        return qs.filter(payment=True)
 
 
 

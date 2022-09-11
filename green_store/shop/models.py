@@ -120,15 +120,15 @@ class Coupon(models.Model):
 
 
 class Basket(models.Model):
-    STATUS_CHOICES=(('queue','Queue'),('providing','Providing'),('complete','Complete'))
+    STATUS_CHOICES=(('queue','Queue'),('providing','Providing'),('sent','Sent'))
     user = models.ForeignKey(User,on_delete=models.CASCADE,related_name='baskets')
     tracking_code=models.CharField(max_length=8,blank=True,null=True,unique=True)
     # order_items = models.ManyToManyField(OrderItem)
     ordered_date = models.DateTimeField(null=True,blank=True)
     coupon = models.ForeignKey(Coupon,on_delete=models.SET_NULL,null=True,blank=True)
     payment = models.BooleanField(default=False)
-    provide_order=models.CharField(max_length=10,choices=STATUS_CHOICES,default='queue')
-    send_order = models.BooleanField(default=False)
+    status=models.CharField(max_length=10,choices=STATUS_CHOICES,default='queue')
+    # send_order = models.BooleanField(default=False)
 
     class Meta:
         constraints=[
@@ -146,9 +146,12 @@ class Basket(models.Model):
         total=0
         for order_item in self.order_items.all():
             total += order_item.get_total_product_price()
+
         if self.coupon:
             total -= self.coupon.amount
+
         return total
+
 
     def get_order_items(self):
         return ',\n'.join([str(p) for p in self.order_items.all()])
@@ -189,16 +192,23 @@ class OrderItem(models.Model):
     #     ]
 
     def __str__(self):
-        return f'>{self.product.name}-{list(self.variation.privileged_attribute.values_list("value",flat=True))}({self.quantity})#'
+        if self.variation:
+            return f'>{self.product.name}-{list(self.variation.privileged_attribute.values_list("value",flat=True))}({self.quantity})#'
+        else:
+            return f'>{self.product.name}({self.quantity})#'
+
         # return f'{self.quantity} of {self.product.name}'
 
     def get_total_product_price(self):
-        if self.product.discount:
+        if self.variation:
+            return self.quantity * self.variation.price
+        elif self.product.discount:
             old_price=self.product.price
             discount=self.product.discount
             new_price = old_price - (discount * old_price // 100)
             return self.quantity * new_price
-        return self.quantity * self.product.price
+        else:
+            return self.quantity * self.product.price
 
 
 

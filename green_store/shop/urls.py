@@ -26,7 +26,8 @@ urlpatterns = [
     path('<slug:category_slug>',views.products_by_category,name='products_by_category'),
     # Basket section
     path('basket/',views.basket,name='basket'),
-    path('add_to_basket/',views.add_to_basket,name='add_to_basket')
+    path('add_to_basket/',views.add_to_basket,name='add_to_basket'),
+    path('remove_from_basket/',views.remove_from_basket,name='remove_from_basket'),
 
  ]
 if settings.DEBUG:

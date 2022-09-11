@@ -824,7 +824,9 @@ def add_to_basket(request):
         #     basket.order_items.add(order_item)
         #     return Response(basket_serializer.data,status=status.HTTP_201_CREATED)
         # return Response(basket_serializer.errors,status=status.HTTP_400_BAD_REQUEST)
-
+@api_view(['POST'])
+def remove_from_basket(request):
+    pass
 
 @api_view(['GET'])
 def basket(request):

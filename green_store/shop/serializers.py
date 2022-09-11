@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Product,Profile,Comment,Category,Attribute,Rating,Variation,Basket,ProductImage,Coupon,OrderItem
 from django.contrib.auth.models import User
-from django.db.models import Avg
+from django.db.models import Avg,Sum,F
 from django.contrib.auth.password_validation import validate_password
 from rest_framework.pagination import PageNumberPagination
 
@@ -194,16 +194,37 @@ class OrderItemSerializers(serializers.ModelSerializer):
     user=UserSerializers(read_only=True)
     product=ProductSerializers(read_only=True)
     variation=VariationsSerializers(read_only=True)
+    # total=serializers.SerializerMethodField()
     class Meta:
         model=OrderItem
-        fields=['id','user','product','quantity','variation']
+        fields=['id','user','product','quantity','variation','get_total_product_price']
         read_only_field=['__all__']
+    # def get_total(self,obj):
+    #     if obj.variation:
+    #         return obj.quantity * obj.variation.price
+    #     elif obj.product.discount:
+    #         old_price = obj.product.price
+    #         discount = obj.product.discount
+    #         new_price = old_price - (discount * old_price // 100)
+    #         return obj.quantity * new_price
+    #     else:
+    #         return obj.quantity * obj.product.price
 
 class BasketSerializers(serializers.ModelSerializer):
     user=UserSerializers(read_only=True)
     order_items=OrderItemSerializers(many=True)
+    # total_price=serializers.SerializerMethodField()
     class Meta:
         model = Basket
-        fields=['id','user','order_items','ordered_date','coupon','payment','provide_order','send_order']
-        read_only_fields=['id','user','payment','provider_order','send_order']
+        fields=['id','user','order_items','ordered_date','coupon','payment','status','get_total_price']
+        read_only_fields=['id','user','payment','provider_order','send_order','get_total_price']
+    #
+    # def get_total_price(self,obj):
 
+    #     # total=obj.values('order_items').aggregate(total_price=Sum(F('product__price') * 0.01 * (100 - F('product__discount'))))['total_price']
+    #     # total=obj.order_items.values('product').aggregate(total_price=Sum(F('product__price') * 0.01 * (100 - F('product__discount'))*F('quantity')))['total_price']
+    #
+    #
+    #     if obj.order_items.variation.first():
+    #     total=obj.order_items.values('product').aggregate(total_price=Sum(F('product__price') * 0.01 * (100 - F('product__discount'))*F('quantity')))['total_price']
+    #     return total
