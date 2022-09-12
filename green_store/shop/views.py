@@ -826,7 +826,25 @@ def add_to_basket(request):
         # return Response(basket_serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 @api_view(['POST'])
 def remove_from_basket(request):
-    pass
+    # Check token expire
+    token_expire_handler(token=request.auth)
+    user = request.user
+    basket=get_object_or_404(Basket,pk=request.data['basket_id'],payment=False,user=user)
+    # basket=Basket.objects.filter(user=user,)
+    order_item=get_object_or_404(OrderItem,pk=request.data['order_item_id'],basket=basket)
+    # temp=Basket.objects.filter(order_items=order_item, payment=False)
+    # if temp == basket:
+    # if basket.filter(order_items=order_item).exists():
+    if order_item.quantity == 1 :
+        print('order_item deleted')
+        order_item.delete()
+    else:
+        order_item.quantity -= 1
+        order_item.save()
+        print('order_items quantity reduced')
+    b_serializer=BasketSerializers(basket)
+    return Response(b_serializer.data,status=status.HTTP_200_OK)
+    # return Response(status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 def basket(request):
