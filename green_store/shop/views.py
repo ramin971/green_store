@@ -499,12 +499,12 @@ def add_edit_delete_product(request):
                 result = {
                     'error': 'product with this slug does not exist'
                 }
-                return Response(result, status=status.HTTP_204_NO_CONTENT)
+                return Response(result, status=status.HTTP_404_NOT_FOUND)
             images_406 = []
             if 'images' in request.data:
-                product.images.clear()
+                # product.images.clear()
                 # remove old variation
-                # ProductImage.objects.filter(product=product).delete()
+                ProductImage.objects.filter(product=product).delete()
 
                 all_image = request.data.getlist('images')
                 MAX_FILE_SIZE = 512000

@@ -157,8 +157,7 @@ class ProductDetailSerializers(serializers.ModelSerializer):
         fields=['id','name','images','price','discount','new_price','rate','stock',
                 'created','description','attribute','variations']
 
-        read_only_fields = ['id', 'name', 'images', 'price', 'discount', 'new_price', 'rate', 'stock',
-                  'created', 'description', 'attribute', 'variations']
+        read_only_fields = ['id', 'images', 'new_price', 'rate', 'created', 'attribute', 'variations']
 
     def get_images(self,obj):
         image=obj.images.values()
