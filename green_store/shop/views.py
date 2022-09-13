@@ -204,6 +204,13 @@ def profile(request):
             return Response(serializer.data,status=status.HTTP_201_CREATED)
         return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
 
+    if request.method=='PUT':
+        profile=get_object_or_404(Profile,user=user)
+        serializer=ProfileSerializers(profile,data=request.data,partial=True)
+        if serializer.is_valid():
+            return Response(serializer.data,status=status.HTTP_205_RESET_CONTENT)
+        return Response(serializer.errors,status=status.HTTP_400_BAD_REQUEST)
+
 @api_view(['GET'])
 def get_started(request):
     # new_product=
